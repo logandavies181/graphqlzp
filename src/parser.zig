@@ -6,9 +6,10 @@ const TokenKind = lexer.TokenKind;
 
 const Keyword = enum {
     unknown,
-    type,
     implements,
     interface,
+    scalar,
+    type,
 };
 
 const Error = error{
@@ -33,6 +34,7 @@ pub const Parser = struct {
     fn tryParse(self: *Parser) !Document {
         var types = std.ArrayList(Object).init(self.alloc);
         var interfaces = std.ArrayList(Interface).init(self.alloc);
+        var scalars = std.ArrayList(Scalar).init(self.alloc);
 
         while (true) {
             const _next = self.iter.next();
@@ -49,6 +51,9 @@ pub const Parser = struct {
                         },
                         .interface => {
                             try interfaces.append(try self.parseInterface());
+                        },
+                        .scalar => {
+                            try scalars.append(try self.parseScalar());
                         },
                         else => return Error.badParse,
                     }
@@ -90,6 +95,8 @@ pub const Parser = struct {
             .implements
         else if (memeql(u8, id, "interface"))
             .interface
+        else if (memeql(u8, id, "scalar"))
+            .scalar
         else
             .unknown;
     }
@@ -213,6 +220,16 @@ pub const Parser = struct {
 
         // TODO
         return null;
+    }
+
+    fn parseScalar(self: *Parser) !Scalar {
+        const name = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
+
+        // TODO: directives
+
+        return .{
+            .name = name.value,
+        };
     }
 };
 
@@ -387,7 +404,11 @@ const Arg = struct {
     typeName: []const u8,
 };
 
-const Scalar = struct {};
+const Scalar = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+    directives: ?[]Directive = null,
+};
 
 const NamedType = struct {
     name: []const u8,
