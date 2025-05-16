@@ -28,7 +28,7 @@ pub const Token = struct {
     startPos: u64,
 };
 
-pub const Error = error {
+pub const Error = error{
     unknownToken,
     internalWrongNumBytes,
     internalNullNBytes,
@@ -179,7 +179,7 @@ pub const Tokenizer = struct {
         return self.readWhile(.string, _readStringWhileFunc());
     }
 
-    fn _readStringWhileFunc() fn([]const u8) bool {
+    fn _readStringWhileFunc() fn ([]const u8) bool {
         return struct {
             var numDquote: u8 = 0;
             fn func(cp: []const u8) bool {
@@ -216,7 +216,7 @@ pub const Tokenizer = struct {
         };
     }
 
-    fn readWhile(self: *Tokenizer, kind: TokenKind, predicate: fn([]const u8) bool) Token {
+    fn readWhile(self: *Tokenizer, kind: TokenKind, predicate: fn ([]const u8) bool) Token {
         const startPos = self.pos;
         var len: u64 = 0;
         while (predicate(self.iter.peek(1))) {
@@ -248,7 +248,7 @@ pub const Tokenizer = struct {
         return .{
             .kind = kind,
             .value = val,
-            .startPos = self.pos-val.len,
+            .startPos = self.pos - val.len,
         };
     }
 

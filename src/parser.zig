@@ -11,7 +11,7 @@ const Keyword = enum {
     interface,
 };
 
-const Error = error {
+const Error = error{
     badParse,
     badFieldDefParse,
     noneNext,
@@ -72,7 +72,7 @@ pub const Parser = struct {
             switch (err) {
                 Error.badParse => blk: {
                     const curr = self.iter.current();
-                    std.debug.print("\nBad parse at: {d}. Found: {s}\n", .{curr.startPos, @tagName(curr.kind)});
+                    std.debug.print("\nBad parse at: {d}. Found: {s}\n", .{ curr.startPos, @tagName(curr.kind) });
                     break :blk err;
                 },
                 else => blk: {
@@ -92,7 +92,6 @@ pub const Parser = struct {
             .interface
         else
             .unknown;
-
     }
 
     fn parseIdent(self: *Parser) !void {
@@ -134,7 +133,7 @@ pub const Parser = struct {
         var fields = std.ArrayList(Field).init(self.alloc);
 
         while (true) {
-            const next = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier, .rbrack, .string});
+            const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .identifier, .rbrack, .string });
             switch (next.kind) {
                 TokenKind.rbrack => break,
                 TokenKind.string => return Error.notImplemented,
@@ -175,7 +174,7 @@ pub const Parser = struct {
 
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {
         _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
-        const next = try self.iter.requireNextMeaningful(&[_]TokenKind{.lsqbrack, .identifier});
+        const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .lsqbrack, .identifier });
         return switch (next.kind) {
             TokenKind.identifier => blk: {
                 var nullable = true;
@@ -254,7 +253,7 @@ const Iterator = struct {
         return if (self.tokens.len - self.index < numPeek)
             self.tokens[self.index..]
         else
-            self.tokens[self.index..self.index+numPeek];
+            self.tokens[self.index .. self.index + numPeek];
     }
 
     fn mustNext(self: *Iterator) !Token {
@@ -300,7 +299,6 @@ const Iterator = struct {
                 },
             }
         }
-
     }
 
     fn peekNextMeaningful(self: *Iterator) ?Token {
@@ -323,13 +321,10 @@ const Iterator = struct {
                 },
             }
         }
-
     }
 };
 
-const Ast = struct {
-
-};
+const Ast = struct {};
 
 const Document = struct {
     types: []Object, // TODO
@@ -392,9 +387,7 @@ const Arg = struct {
     typeName: []const u8,
 };
 
-const Scalar = struct {
-};
-
+const Scalar = struct {};
 
 const NamedType = struct {
     name: []const u8,
