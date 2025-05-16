@@ -7,11 +7,13 @@ const TokenKind = lexer.TokenKind;
 const Keyword = enum {
     unknown,
     type,
+    implements,
     interface,
 };
 
 const Error = error {
     badParse,
+    badFieldDefParse,
     noneNext,
     notImplemented,
     todo,
@@ -84,6 +86,8 @@ pub const Parser = struct {
         const memeql = std.mem.eql;
         return if (memeql(u8, id, "type"))
             .type
+        else if (memeql(u8, id, "implements"))
+            .implements
         else if (memeql(u8, id, "interface"))
             .interface
         else
@@ -101,35 +105,28 @@ pub const Parser = struct {
     }
 
     fn parseObject(self: *Parser) !Object {
-        const st = try self.parse_struct(true);
-
-        return .{
-            .description = st.description,
-            .name = st.name,
-            .nullable = st.nullable,
-            .fields = st.fields,
-            .pos = st.pos,
-        };
+        return try self.parse_struct(Object);
     }
 
     fn parseInterface(self: *Parser) !Interface {
-        const st = try self.parse_struct(false);
-
-        return .{
-            .description = st.description,
-            .name = st.name,
-            .nullable = st.nullable,
-            .fields = st.fields,
-            .pos = st.pos,
-        };
+        return try self.parse_struct(Interface);
     }
 
-    fn parse_struct(self: *Parser, isObj: bool) !_struct {
+    fn parse_struct(self: *Parser, ty: type) !ty {
         const name = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
 
-        if (isObj) {
-            // TODO: check for interfaces
-            _ = void;
+        var implements: ?[]NamedType = null;
+        if (ty == Object) {
+            const next_ = self.iter.peekNextMeaningful();
+            if (next_ != null and next_.?.kind == TokenKind.identifier) {
+                const kw = checkKeyword(next_.?.value);
+                if (kw != Keyword.implements) {
+                    return Error.badParse;
+                }
+
+                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
+                implements = try self.parseImplements();
+            }
         }
 
         _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.lbrack});
@@ -142,19 +139,38 @@ pub const Parser = struct {
                 TokenKind.rbrack => break,
                 TokenKind.string => return Error.notImplemented,
                 TokenKind.identifier => {
-                    try fields.append(try self.parseFieldDef(next, null));
+                    const fld = try self.parseFieldDef(next, null);
+                    try fields.append(fld);
                 },
                 else => return Error.badParse,
             }
         }
 
-        return .{
+        var ret: ty = .{
             .description = null, // TODO
             .name = name.value,
             // TODO: nullable
             .fields = try fields.toOwnedSlice(),
             .pos = name.startPos,
         };
+
+        if (ty == Object) {
+            ret.implements = implements;
+        }
+
+        return ret;
+    }
+
+    fn parseImplements(self: *Parser) ![]NamedType {
+        var implements = std.ArrayList(NamedType).init(self.alloc);
+
+        // TODO ampersands / multiple interfaces
+        const next_ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
+        try implements.append(.{
+            .name = next_.value,
+        });
+
+        return try implements.toOwnedSlice();
     }
 
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {
@@ -169,8 +185,15 @@ pub const Parser = struct {
                     nullable = false;
                 }
 
+                var directives: ?[]Directive = null;
+                const nextMeaningful = self.iter.peekNextMeaningful();
+                if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
+                    directives = self.parseDirectives();
+                }
+
                 break :blk .{
                     .description = description,
+                    .directives = directives,
                     .nullable = nullable,
                     .name = name.value,
                     .pos = name.startPos,
@@ -180,8 +203,17 @@ pub const Parser = struct {
             TokenKind.lsqbrack => blk: {
                 break :blk Error.notImplemented;
             },
-            else => Error.badParse,
+            else => Error.badFieldDefParse,
         };
+    }
+
+    fn parseDirectives(self: *Parser) ?[]Directive {
+        _ = self.iter.next();
+        _ = self.iter.next();
+        _ = self.iter.next();
+
+        // TODO
+        return null;
     }
 };
 
@@ -212,6 +244,7 @@ const Iterator = struct {
         }
 
         const ret = self.tokens[self.index];
+        // TODO remove this print
         std.debug.print("{s}", .{ret.value});
         self.index += 1;
         return ret;
@@ -248,6 +281,50 @@ const Iterator = struct {
             }
         }
     }
+
+    fn requireNextMeaningfulSameLine(self: *Iterator) !Token {
+        const curr = self.index;
+        while (true) {
+            const next_ = try self.mustNext();
+
+            switch (next_.?.kind) {
+                TokenKind.comma => _ = void,
+                TokenKind.comment => _ = void,
+                TokenKind.whitespace => _ = void,
+                TokenKind.newline => _ = {
+                    return Error.badParse;
+                },
+                else => {
+                    self.index = curr;
+                    return next_;
+                },
+            }
+        }
+
+    }
+
+    fn peekNextMeaningful(self: *Iterator) ?Token {
+        const curr = self.index;
+        while (true) {
+            const next_ = self.next();
+
+            if (next_ == null) {
+                return null;
+            }
+
+            switch (next_.?.kind) {
+                TokenKind.comma => _ = void,
+                TokenKind.comment => _ = void,
+                TokenKind.newline => _ = void,
+                TokenKind.whitespace => _ = void,
+                else => {
+                    self.index = curr;
+                    return next_;
+                },
+            }
+        }
+
+    }
 };
 
 const Ast = struct {
@@ -280,7 +357,7 @@ const Object = struct {
     description: ?[]const u8,
     nullable: bool = true,
     name: []const u8,
-    // interfaces: []*Interface,
+    implements: ?[]NamedType = null,
     // directives: []*Directive,
     fields: []Field,
 
@@ -292,6 +369,7 @@ const Field = struct {
     nullable: bool = false,
     name: []const u8,
     type: []const u8, // TODO
+    directives: ?[]Directive = null,
 
     pos: u64,
 };
@@ -304,6 +382,20 @@ const Interface = struct {
 
     pos: u64,
 };
-const Directive = struct {};
+
+const Directive = struct {
+    args: ?[]Arg,
+};
+
+const Arg = struct {
+    name: []const u8,
+    typeName: []const u8,
+};
+
 const Scalar = struct {
+};
+
+
+const NamedType = struct {
+    name: []const u8,
 };

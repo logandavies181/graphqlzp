@@ -19,6 +19,7 @@ pub const TokenKind = enum {
     bang,
     dquote,
     string,
+    ampersand,
 };
 
 pub const Token = struct {
