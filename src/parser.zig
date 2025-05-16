@@ -180,10 +180,35 @@ pub const Parser = struct {
     }
 
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {
-        _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
+        var args: ?[]Arg = null;
+        const colOrParen = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon, .lparen});
+
+        if (colOrParen.kind == TokenKind.lparen) {
+            args = try self.parseArgs();
+            _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
+        }
+
+        const ty = try self.parseType();
+
+        var directives: ?[]Directive = null;
+        const nextMeaningful = self.iter.peekNextMeaningful();
+        if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
+            directives = self.parseDirectives();
+        }
+
+        return .{
+            .description = description,
+            .directives = directives,
+            .name = name.value,
+            .pos = name.startPos,
+            .type = ty,
+        };
+    }
+
+    fn parseType(self: *Parser) !TypeRef {
         const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .lsqbrack, .identifier });
         return switch (next.kind) {
-            TokenKind.identifier => blk: {
+            TokenKind.identifier => {
                 var nullable = true;
                 const nnext = self.iter.peek(1);
                 if (nnext.len != 0 and nnext[0].kind == TokenKind.bang) {
@@ -191,25 +216,37 @@ pub const Parser = struct {
                     nullable = false;
                 }
 
-                var directives: ?[]Directive = null;
-                const nextMeaningful = self.iter.peekNextMeaningful();
-                if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
-                    directives = self.parseDirectives();
-                }
-
-                break :blk .{
-                    .description = description,
-                    .directives = directives,
-                    .nullable = nullable,
-                    .name = name.value,
-                    .pos = name.startPos,
-                    .type = next.value,
+                // TODO: pos
+                return .{
+                    .namedType = .{
+                        .name = next.value,
+                        .nullable = nullable,
+                    },
                 };
             },
             TokenKind.lsqbrack => blk: {
                 break :blk Error.notImplemented;
             },
             else => Error.badFieldDefParse,
+        };
+    }
+
+    fn parseArgs(self: *Parser) ![]Arg {
+        var args = std.ArrayList(Arg).init(self.alloc);
+        while (true) {
+            const next = try self.parseArg();
+            try args.append(next);
+        }
+    }
+
+    fn parseArg(self: *Parser) !Arg {
+        const name = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
+        _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
+        const ty = try self.parseType();
+
+        return .{
+            .name = name.value,
+            .ty = ty,
         };
     }
 
@@ -347,13 +384,28 @@ const Document = struct {
     types: []Object, // TODO
 };
 
-const Type = union {
+const TypeDef = union {
     Scalar: Scalar,
     Object: Object,
     // Interface,
     // Union,
     // Enum,
     // Input,
+};
+
+const TypeRef = union {
+    namedType: NamedType,
+    listType: ListType,
+};
+
+const NamedType = struct {
+    name: []const u8,
+    nullable: bool = true,
+};
+
+const ListType = struct {
+    ty: []TypeRef,
+    nullable: bool = true,
 };
 
 const _struct = struct {
@@ -378,10 +430,9 @@ const Object = struct {
 
 const Field = struct {
     description: ?[]const u8,
-    nullable: bool = false,
-    name: []const u8,
-    type: []const u8, // TODO
     directives: ?[]Directive = null,
+    name: []const u8,
+    type: TypeRef,
 
     pos: u64,
 };
@@ -401,15 +452,11 @@ const Directive = struct {
 
 const Arg = struct {
     name: []const u8,
-    typeName: []const u8,
+    ty: TypeRef,
 };
 
 const Scalar = struct {
     description: ?[]const u8 = null,
     name: []const u8,
     directives: ?[]Directive = null,
-};
-
-const NamedType = struct {
-    name: []const u8,
 };
