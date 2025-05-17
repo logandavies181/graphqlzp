@@ -9,11 +9,18 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    const lsp_codegen = b.dependency("lsp_codegen", .{});
+
     const exe = b.addExecutable(.{
         .name = "graphqlzp",
         .root_module = exe_mod,
     });
+
+    exe.root_module.addImport("lsp", lsp_codegen.module("lsp"));
+
     b.installArtifact(exe);
+
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {

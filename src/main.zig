@@ -1,20 +1,51 @@
 const std = @import("std");
-
-const lexer = @import("lexer.zig");
-const parser = @import("parser.zig");
+const lsp = @import("lsp");
+const Errors = @import("lzp/errors.zig");
+const Error = Errors.Error;
+const Handler = @import("lzp/handler.zig");
+const Server = @import("lzp/server.zig");
 
 pub fn main() !void {
-    var dba: std.heap.DebugAllocator(.{}) = .init;
-    const alloc = dba.allocator();
+    var gpa = std.heap.DebugAllocator(.{}).init;
+    const alloc = gpa.allocator();
 
-    var tokenizer = try lexer.Tokenizer.create("schema.graphql", alloc);
-    const tokens = try tokenizer.tokenize();
+    var transport: lsp.ThreadSafeTransport(.{
+        .ChildTransport = lsp.TransportOverStdio,
+        .thread_safe_read = false,
+        .thread_safe_write = true,
+    }) = .{ .child_transport = .init(std.io.getStdIn(), std.io.getStdOut()) };
 
-    var _parser = parser.Parser.create(alloc, tokens);
-    // var doc = try parser.Parser.create(alloc, tokens).parse();
-    const doc = try _parser.parse();
+    var himple: Himpl = .{};
+    const handler = himple.handler();
 
-    for (doc.types) |ty| {
-        std.debug.print("{s}\n", .{ty.name});
-    }
+    const server = try Server.create(alloc, handler);
+    defer server.destroy();
+    server.setTransport(transport.any());
+
+    try server.loop();
 }
+
+const Himpl = struct {
+    pub fn hover(_: *anyopaque, _: lsp.types.HoverParams) Error!?lsp.types.Hover {
+        return .{
+            .contents = .{
+                .MarkupContent = .{
+                    .kind = .markdown,
+                    .value =
+                        \\```
+                        \\foo!
+                        \\```
+                },
+            },
+        };
+    }
+
+    pub fn handler(self: *Himpl) Handler {
+        return .{
+            .ptr = self,
+            .vtable = &.{
+                .hover = hover,
+            },
+        };
+    }
+};

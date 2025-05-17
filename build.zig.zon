@@ -4,6 +4,10 @@
     .fingerprint = 0xa8440dcf08082255, // Changing this has security and trust implications.
     .minimum_zig_version = "0.14.0",
     .dependencies = .{
+        .lsp_codegen = .{
+            .url = "git+https://github.com/zigtools/zig-lsp-codegen.git#81da5d2a6a8f368939096f09ee60529ffb4db64c",
+            .hash = "lsp_codegen-0.1.0-CMjjo4u6CQCqjymaKVis35Nf-_UeEuJgfJg6_0vCTRI2",
+        },
     },
     .paths = .{
         "build.zig",
