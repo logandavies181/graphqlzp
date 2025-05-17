@@ -1,0 +1,82 @@
+pub const Document = struct {
+    types: []Object = &[_]Object{},
+    scalars: []Scalar = &[_]Scalar{},
+    interfaces: []Interface = &[_]Interface{},
+};
+
+pub const Schema = struct {
+    description: ?[]const u8 = null,
+    directives: ?[]Directive = null,
+
+    query: NamedType,
+    mutation: ?NamedType,
+    subscription: ?NamedType,
+
+    pos: u64,
+};
+
+pub const TypeRef = union {
+    namedType: NamedType,
+    listType: ListType,
+};
+
+pub const NamedType = struct {
+    name: []const u8,
+    nullable: bool = true,
+};
+
+pub const ListType = struct {
+    ty: *TypeRef,
+    nullable: bool = true,
+};
+
+pub const Object = struct {
+    description: ?[]const u8 = null,
+    directives: ?[]Directive = null,
+    fields: []Field,
+    implements: ?[]NamedType = null,
+    nullable: bool = true,
+    name: []const u8,
+
+    pos: u64,
+};
+
+pub const Field = struct {
+    description: ?[]const u8 = null,
+    directives: ?[]Directive = null,
+    name: []const u8,
+    type: TypeRef,
+
+    pos: u64,
+};
+
+pub const Interface = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+    nullable: bool = true,
+    fields: []Field,
+
+    pos: u64,
+};
+
+pub const Directive = struct {
+    args: ?[]Arg,
+    name: []const u8,
+};
+
+pub const DirectiveDef = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+};
+
+pub const Arg = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+    ty: TypeRef,
+};
+
+pub const Scalar = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+    directives: ?[]Directive = null,
+};

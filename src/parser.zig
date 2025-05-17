@@ -4,11 +4,24 @@ const lexer = @import("lexer.zig");
 const Token = lexer.Token;
 const TokenKind = lexer.TokenKind;
 
+const ast = @import("ast.zig");
+const Arg = ast.Arg;
+const Directive = ast.Directive;
+const Document = ast.Document;
+const Field = ast.Field;
+const Interface = ast.Interface;
+const NamedType = ast.NamedType;
+const Object = ast.Object;
+const Scalar = ast.Scalar;
+const Schema = ast.Schema;
+const TypeRef = ast.TypeRef;
+
 const Keyword = enum {
     unknown,
     implements,
     interface,
     scalar,
+    schema,
     type,
 };
 
@@ -35,6 +48,7 @@ pub const Parser = struct {
         var types = std.ArrayList(Object).init(self.alloc);
         var interfaces = std.ArrayList(Interface).init(self.alloc);
         var scalars = std.ArrayList(Scalar).init(self.alloc);
+        var schema: ?Schema = null;
 
         while (true) {
             const _next = self.iter.next();
@@ -43,26 +57,51 @@ pub const Parser = struct {
             }
             const next = _next.?;
 
+            var desc: ?[]const u8 = null;
             switch (next.kind) {
                 TokenKind.identifier => {
                     switch (checkKeyword(next.value)) {
                         .type => {
-                            try types.append(try self.parseObject());
+                            var item = try self.parseObject();
+                            item.description = desc;
+                            desc = null;
+                            try types.append(item);
                         },
                         .interface => {
-                            try interfaces.append(try self.parseInterface());
+                            var item = try self.parseInterface();
+                            item.description = desc;
+                            desc = null;
+                            try interfaces.append(item);
                         },
                         .scalar => {
-                            try scalars.append(try self.parseScalar());
+                            var item = try self.parseScalar();
+                            item.description = desc;
+                            desc = null;
+                            try scalars.append(item);
+                        },
+                        .schema => {
+                            if (schema != null) {
+                                return Error.badParse;
+                            }
+
+                            schema = try self.parseSchema(next.startPos);
+                            schema.?.description = desc;
+                            desc = null;
                         },
                         else => return Error.badParse,
+                    }
+                },
+                TokenKind.string => {
+                    if (desc == null) {
+                        desc = next.value;
+                    } else {
+                        return Error.badParse;
                     }
                 },
                 TokenKind.comma => _ = void,
                 TokenKind.comment => _ = void,
                 TokenKind.newline => _ = void,
                 TokenKind.whitespace => _ = void,
-                // TODO: handle random strings, and docstrings
                 else => return Error.todo,
             }
         }
@@ -97,6 +136,8 @@ pub const Parser = struct {
             .interface
         else if (memeql(u8, id, "scalar"))
             .scalar
+        else if (memeql(u8, id, "schema"))
+            .schema
         else
             .unknown;
     }
@@ -164,6 +205,86 @@ pub const Parser = struct {
         }
 
         return ret;
+    }
+
+    fn parseSchema(self: *Parser, pos: u64) !Schema {
+        var directives: ?[]Directive = null;
+        const nextMeaningful = self.iter.peekNextMeaningful();
+        if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
+            directives = self.parseDirectives();
+        }
+        _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.lbrack});
+
+        var query: ?NamedType = null;
+        var mutation: ?NamedType = null;
+        var subscription: ?NamedType = null;
+
+        var desc: ?[]const u8 = null;
+
+        while (true) {
+            const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .identifier, .rbrack, .string });
+            switch (next.kind) {
+                TokenKind.rbrack => break,
+                TokenKind.string => {
+                    if (desc == null) {
+                        desc = next.value;
+                    } else {
+                        return Error.badParse;
+                    }
+                },
+                TokenKind.identifier => {
+                    const opname = next.value;
+
+                    const fld = try self.parseFieldDef(next, desc);
+                    desc = null;
+
+                    const memeql = std.mem.eql;
+                    if (memeql(u8, opname, "query")) {
+                        if (query != null) {
+                            return Error.badParse;
+                        }
+
+                        query = .{
+                            .name = fld.name,
+                        };
+                    } else if (memeql(u8, opname, "mutation")) {
+                        if (mutation != null) {
+                            return Error.badParse;
+                        }
+
+                        mutation = .{
+                            .name = fld.name,
+                        };
+                    } else if (memeql(u8, opname, "subscription")) {
+                        if (subscription != null) {
+                            return Error.badParse;
+                        }
+
+                        subscription = .{
+                            .name = fld.name,
+                        };
+                    } else {
+                        return Error.badParse;
+                    }
+
+                },
+                else => return Error.badParse,
+            }
+        }
+
+        if (query == null) {
+            return error.badParse;
+        }
+
+        return .{
+            .description = desc,
+            .directives = directives,
+            .query = query.?,
+            .mutation = mutation,
+            .subscription = subscription,
+
+            .pos = pos,
+        };
     }
 
     fn parseImplements(self: *Parser) ![]NamedType {
@@ -378,78 +499,4 @@ const Iterator = struct {
             }
         }
     }
-};
-
-const Document = struct {
-    types: []Object = &[_]Object{},
-    scalars: []Scalar = &[_]Scalar{},
-    interfaces: []Interface = &[_]Interface{},
-};
-
-const TypeDef = union {
-    Scalar: Scalar,
-    Object: Object,
-    // Interface,
-    // Union,
-    // Enum,
-    // Input,
-};
-
-const TypeRef = union {
-    namedType: NamedType,
-    listType: ListType,
-};
-
-const NamedType = struct {
-    name: []const u8,
-    nullable: bool = true,
-};
-
-const ListType = struct {
-    ty: *TypeRef,
-    nullable: bool = true,
-};
-
-const Object = struct {
-    description: ?[]const u8,
-    nullable: bool = true,
-    name: []const u8,
-    implements: ?[]NamedType = null,
-    // directives: []*Directive,
-    fields: []Field,
-
-    pos: u64,
-};
-
-const Field = struct {
-    description: ?[]const u8,
-    directives: ?[]Directive = null,
-    name: []const u8,
-    type: TypeRef,
-
-    pos: u64,
-};
-
-const Interface = struct {
-    description: ?[]const u8,
-    name: []const u8,
-    nullable: bool = true,
-    fields: []Field,
-
-    pos: u64,
-};
-
-const Directive = struct {
-    args: ?[]Arg,
-};
-
-const Arg = struct {
-    name: []const u8,
-    ty: TypeRef,
-};
-
-const Scalar = struct {
-    description: ?[]const u8 = null,
-    name: []const u8,
-    directives: ?[]Directive = null,
 };
