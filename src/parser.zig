@@ -210,9 +210,9 @@ pub const Parser = struct {
         return switch (next.kind) {
             TokenKind.identifier => {
                 var nullable = true;
-                const nnext = self.iter.peek(1);
-                if (nnext.len != 0 and nnext[0].kind == TokenKind.bang) {
-                    _ = self.iter.next();
+                const nnext = self.iter.peekNextMeaningful();
+                if (nnext != null and nnext.?.kind == TokenKind.bang) {
+                    _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.bang});
                     nullable = false;
                 }
 
@@ -224,8 +224,23 @@ pub const Parser = struct {
                     },
                 };
             },
-            TokenKind.lsqbrack => blk: {
-                break :blk Error.notImplemented;
+            TokenKind.lsqbrack => {
+                var ty = try self.parseTypeRef();
+                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.rsqbrack});
+
+                var nullable = true;
+                const nnext = self.iter.peekNextMeaningful();
+                if (nnext != null and nnext.?.kind == TokenKind.bang) {
+                    _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.bang});
+                    nullable = false;
+                }
+
+                return .{
+                    .listType = .{
+                        .ty = &ty,
+                        .nullable = nullable,
+                    },
+                };
             },
             else => Error.badFieldDefParse,
         };
@@ -393,7 +408,7 @@ const NamedType = struct {
 };
 
 const ListType = struct {
-    ty: []TypeRef,
+    ty: *TypeRef,
     nullable: bool = true,
 };
 
