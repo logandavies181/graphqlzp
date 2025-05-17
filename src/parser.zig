@@ -253,7 +253,7 @@ pub const Parser = struct {
             if (peeked == null) {
                 return Error.noneNext;
             } else if (peeked.?.kind == TokenKind.rparen) {
-                _ = self.iter.next();
+                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.rparen});
                 break;
             }
 
