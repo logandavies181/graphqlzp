@@ -155,7 +155,6 @@ pub const Parser = struct {
         var ret: ty = .{
             .description = null, // TODO
             .name = name.value,
-            // TODO: nullable
             .fields = try fields.toOwnedSlice(),
             .pos = name.startPos,
         };
@@ -321,8 +320,7 @@ const Iterator = struct {
         }
 
         const ret = self.tokens[self.index];
-        // TODO remove this print
-        std.debug.print("{s}", .{ret.value});
+        // std.debug.print("{s}", .{ret.value});
         self.index += 1;
         return ret;
     }
@@ -382,10 +380,10 @@ const Iterator = struct {
     }
 };
 
-const Ast = struct {};
-
 const Document = struct {
-    types: []Object, // TODO
+    types: []Object = &[_]Object{},
+    scalars: []Scalar = &[_]Scalar{},
+    interfaces: []Interface = &[_]Interface{},
 };
 
 const TypeDef = union {
@@ -410,15 +408,6 @@ const NamedType = struct {
 const ListType = struct {
     ty: *TypeRef,
     nullable: bool = true,
-};
-
-const _struct = struct {
-    description: ?[]const u8,
-    nullable: bool = true,
-    name: []const u8,
-    fields: []Field,
-
-    pos: u64,
 };
 
 const Object = struct {
