@@ -188,7 +188,7 @@ pub const Parser = struct {
             _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
         }
 
-        const ty = try self.parseType();
+        const ty = try self.parseTypeRef();
 
         var directives: ?[]Directive = null;
         const nextMeaningful = self.iter.peekNextMeaningful();
@@ -205,7 +205,7 @@ pub const Parser = struct {
         };
     }
 
-    fn parseType(self: *Parser) !TypeRef {
+    fn parseTypeRef(self: *Parser) !TypeRef {
         const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .lsqbrack, .identifier });
         return switch (next.kind) {
             TokenKind.identifier => {
@@ -234,15 +234,24 @@ pub const Parser = struct {
     fn parseArgs(self: *Parser) ![]Arg {
         var args = std.ArrayList(Arg).init(self.alloc);
         while (true) {
+            const peeked = self.iter.peekNextMeaningful();
+            if (peeked == null) {
+                return Error.noneNext;
+            } else if (peeked.?.kind == TokenKind.rparen) {
+                _ = self.iter.next();
+                break;
+            }
+
             const next = try self.parseArg();
             try args.append(next);
         }
+        return try args.toOwnedSlice();
     }
 
     fn parseArg(self: *Parser) !Arg {
         const name = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
         _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
-        const ty = try self.parseType();
+        const ty = try self.parseTypeRef();
 
         return .{
             .name = name.value,
@@ -330,26 +339,6 @@ const Iterator = struct {
                         }
                     }
                     return Error.badParse;
-                },
-            }
-        }
-    }
-
-    fn requireNextMeaningfulSameLine(self: *Iterator) !Token {
-        const curr = self.index;
-        while (true) {
-            const next_ = try self.mustNext();
-
-            switch (next_.?.kind) {
-                TokenKind.comma => _ = void,
-                TokenKind.comment => _ = void,
-                TokenKind.whitespace => _ = void,
-                TokenKind.newline => _ = {
-                    return Error.badParse;
-                },
-                else => {
-                    self.index = curr;
-                    return next_;
                 },
             }
         }
