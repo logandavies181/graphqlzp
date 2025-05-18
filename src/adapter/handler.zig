@@ -1,14 +1,14 @@
 const std = @import("std");
 
-const ast = @import("ast.zig");
-const lexer = @import("lexer.zig");
-const parser = @import("parser.zig");
+const ast = @import("../graphql/ast.zig");
+const lexer = @import("../graphql/lexer.zig");
+const parser = @import("../graphql/parser.zig");
 
-const Errors = @import("lzp/errors.zig");
+const Errors = @import("../lzp/errors.zig");
 const Error = Errors.Error;
 const lsp = @import("lsp");
 
-const _handler = @import("lzp/handler.zig");
+const _handler = @import("../lzp/handler.zig");
 
 const Handler = @This();
 

@@ -26,6 +26,8 @@ pub const TypeRef = union {
 pub const NamedType = struct {
     name: []const u8,
     nullable: bool = true,
+
+    pos: u64
 };
 
 pub const ListType = struct {

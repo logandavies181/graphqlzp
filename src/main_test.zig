@@ -1,7 +1,7 @@
 const std = @import("std");
 
-const lexer = @import("lexer.zig");
-const parser = @import("parser.zig");
+const lexer = @import("graphql/lexer.zig");
+const parser = @import("graphql/parser.zig");
 
 fn testmain() !void {
     var dba: std.heap.DebugAllocator(.{}) = .init;
@@ -14,7 +14,7 @@ fn testmain() !void {
     const doc = try _parser.parse();
 
     for (doc.objects) |ty| {
-        std.debug.print("{s}\n", .{ty.name});
+        std.debug.print("{s} at {d}\n", .{ty.name, ty.pos});
     }
 }
 

@@ -37,13 +37,10 @@ pub const Parser = struct {
     alloc: std.mem.Allocator,
     iter: Iterator,
 
-    namedTypes: std.ArrayList(NamedType),
-
     pub fn create(alloc: std.mem.Allocator, tokens: []Token) Parser {
         return .{
             .alloc = alloc,
             .iter = Iterator.create(tokens),
-            .namedTypes = std.ArrayList(NamedType).init(alloc),
         };
     }
 
@@ -120,14 +117,17 @@ pub const Parser = struct {
                 if (memeql(u8, obj.name, "Query")) {
                     query = .{
                         .name = obj.name,
+                        .pos = obj.pos,
                     };
                 } else if (memeql(u8, obj.name, "Mutation")) {
                     mutation = .{
                         .name = obj.name,
+                        .pos = obj.pos,
                     };
                 } else if (memeql(u8, obj.name, "Subscription")) {
                     subscription = .{
                         .name = obj.name,
+                        .pos = obj.pos,
                     };
                 }
             }
@@ -283,25 +283,25 @@ pub const Parser = struct {
                         if (query != null) {
                             return Error.badParse;
                         }
-
                         query = .{
                             .name = fld.name,
+                            .pos = fld.pos,
                         };
                     } else if (memeql(u8, opname, "mutation")) {
                         if (mutation != null) {
                             return Error.badParse;
                         }
-
                         mutation = .{
                             .name = fld.name,
+                            .pos = fld.pos,
                         };
                     } else if (memeql(u8, opname, "subscription")) {
                         if (subscription != null) {
                             return Error.badParse;
                         }
-
                         subscription = .{
                             .name = fld.name,
+                            .pos = fld.pos,
                         };
                     } else {
                         return Error.badParse;
@@ -334,9 +334,7 @@ pub const Parser = struct {
         const next_ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
         try implements.append(.{
             .name = next_.value,
-        });
-        try self.namedTypes.append(.{
-            .name = next_.value,
+            .pos = next_.startPos,
         });
 
         return try implements.toOwnedSlice();
@@ -384,6 +382,7 @@ pub const Parser = struct {
                     .namedType = .{
                         .name = next.value,
                         .nullable = nullable,
+                        .pos = next.startPos,
                     },
                 };
             },
