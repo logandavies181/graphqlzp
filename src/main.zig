@@ -1,8 +1,6 @@
 const std = @import("std");
 const lsp = @import("lsp");
-const Errors = @import("lzp/errors.zig");
-const Error = Errors.Error;
-const Handler = @import("lzp/handler.zig");
+const Handler = @import("handler.zig");
 const Server = @import("lzp/server.zig");
 
 pub fn main() !void {
@@ -15,37 +13,11 @@ pub fn main() !void {
         .thread_safe_write = true,
     }) = .{ .child_transport = .init(std.io.getStdIn(), std.io.getStdOut()) };
 
-    var himple: Himpl = .{};
-    const handler = himple.handler();
+    var h = Handler.init(alloc);
 
-    const server = try Server.create(alloc, handler);
+    const server = try Server.create(alloc, h.handler());
     defer server.destroy();
     server.setTransport(transport.any());
 
     try server.loop();
 }
-
-const Himpl = struct {
-    pub fn hover(_: *anyopaque, _: lsp.types.HoverParams) Error!?lsp.types.Hover {
-        return .{
-            .contents = .{
-                .MarkupContent = .{
-                    .kind = .markdown,
-                    .value =
-                        \\```
-                        \\bar!
-                        \\```
-                },
-            },
-        };
-    }
-
-    pub fn handler(self: *Himpl) Handler {
-        return .{
-            .ptr = self,
-            .vtable = &.{
-                .hover = hover,
-            },
-        };
-    }
-};

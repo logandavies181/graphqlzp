@@ -11,6 +11,7 @@ const Error = Errors.Error;
 ptr: *anyopaque,
 vtable: *const VTable,
 pub const VTable = struct {
+    initialize: ?*const fn(types.InitializeParams) Error!void = null,
     hover: ?*const fn(*anyopaque, types.HoverParams) Error!?types.Hover = null,
     willSaveWaitUntil: ?*const fn(*anyopaque, types.WillSaveTextDocumentParams) Error!?[]types.TextEdit = null,
     semanticTokensFull: ?*const fn(*anyopaque, types.SemanticTokensParams) Error!?types.SemanticTokens = null,
@@ -37,6 +38,10 @@ fn nullOrImpl(self: Handler, params: anytype, returns: type, func: anytype) retu
         return null;
     }
     return func.?(self.ptr, params);
+}
+
+pub fn initialize(self: Handler, params: types.InitializeParams) Error!void {
+    return self.nullOrImpl(params, Error!void, self.vtable.initialize);
 }
 
 pub fn hover(self: Handler, params: types.HoverParams) Error!?types.Hover {
