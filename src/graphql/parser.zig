@@ -452,6 +452,7 @@ pub const Parser = struct {
 
         return .{
             .name = name.value,
+            .pos = name.startPos,
         };
     }
 };

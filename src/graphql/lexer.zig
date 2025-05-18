@@ -26,6 +26,7 @@ pub const Token = struct {
     kind: TokenKind,
     value: []const u8,
     startPos: u64,
+    lineNum: u64,
 };
 
 pub const Error = error{
@@ -39,6 +40,7 @@ pub const Tokenizer = struct {
     buf: []u8,
     iter: unicode.Utf8Iterator,
 
+    lineNum: u64 = 0,
     pos: u64 = 0,
 
     pub fn create(path: []const u8, allocator: std.mem.Allocator) !Tokenizer {
@@ -71,6 +73,7 @@ pub const Tokenizer = struct {
                 token = self.readWhiteSpace();
             } else if (isNewLine(next)) {
                 token = try self.readNewLine(next[0]);
+                self.lineNum += 1;
             } else if (eq(next, '#')) {
                 token = self.readComment();
             } else if (eq(next, '{')) {
@@ -219,6 +222,7 @@ pub const Tokenizer = struct {
             .kind = .string,
             .value = val,
             .startPos = startPos,
+            .lineNum = self.lineNum,
         };
     }
 
@@ -240,6 +244,7 @@ pub const Tokenizer = struct {
             .kind = kind,
             .value = val,
             .startPos = startPos,
+            .lineNum = self.lineNum,
         };
     }
 
@@ -255,6 +260,7 @@ pub const Tokenizer = struct {
             .kind = kind,
             .value = val,
             .startPos = self.pos - val.len,
+            .lineNum = self.lineNum,
         };
     }
 
@@ -282,6 +288,7 @@ pub const Tokenizer = struct {
             .kind = kind,
             .value = val,
             .startPos = startPos,
+            .lineNum = self.lineNum,
         };
     }
 

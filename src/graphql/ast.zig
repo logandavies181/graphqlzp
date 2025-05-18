@@ -84,4 +84,6 @@ pub const Scalar = struct {
     description: ?[]const u8 = null,
     name: []const u8,
     directives: ?[]Directive = null,
+
+    pos: u64,
 };
