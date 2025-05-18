@@ -37,15 +37,18 @@ pub const Parser = struct {
     alloc: std.mem.Allocator,
     iter: Iterator,
 
+    namedTypes: std.ArrayList(NamedType),
+
     pub fn create(alloc: std.mem.Allocator, tokens: []Token) Parser {
         return .{
             .alloc = alloc,
             .iter = Iterator.create(tokens),
+            .namedTypes = std.ArrayList(NamedType).init(alloc),
         };
     }
 
     fn tryParse(self: *Parser) !Document {
-        var types = std.ArrayList(Object).init(self.alloc);
+        var objects = std.ArrayList(Object).init(self.alloc);
         var interfaces = std.ArrayList(Interface).init(self.alloc);
         var scalars = std.ArrayList(Scalar).init(self.alloc);
         var schema: ?Schema = null;
@@ -65,7 +68,7 @@ pub const Parser = struct {
                             var item = try self.parseObject();
                             item.description = desc;
                             desc = null;
-                            try types.append(item);
+                            try objects.append(item);
                         },
                         .interface => {
                             var item = try self.parseInterface();
@@ -106,8 +109,45 @@ pub const Parser = struct {
             }
         }
 
+        // ensure schema is set
+        if (schema == null) {
+            var query: ?NamedType = null;
+            var mutation: ?NamedType = null;
+            var subscription: ?NamedType = null;
+
+            for (objects.items) |obj| {
+                const memeql = std.mem.eql;
+                if (memeql(u8, obj.name, "Query")) {
+                    query = .{
+                        .name = obj.name,
+                    };
+                } else if (memeql(u8, obj.name, "Mutation")) {
+                    mutation = .{
+                        .name = obj.name,
+                    };
+                } else if (memeql(u8, obj.name, "Subscription")) {
+                    subscription = .{
+                        .name = obj.name,
+                    };
+                }
+            }
+
+            if (query == null) {
+                return Error.badParse;
+            }
+
+            schema = .{
+                .query = query.?,
+                .mutation = mutation,
+                .subscription = subscription,
+            };
+        }
+
         return .{
-            .types = try types.toOwnedSlice(),
+            .objects = try objects.toOwnedSlice(),
+            .interfaces = try interfaces.toOwnedSlice(),
+            .scalars = try scalars.toOwnedSlice(),
+            .schema = schema.?,
         };
     }
 
@@ -170,8 +210,8 @@ pub const Parser = struct {
                 if (kw != Keyword.implements) {
                     return Error.badParse;
                 }
+                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier}); // impements keyword
 
-                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
                 implements = try self.parseImplements();
             }
         }
@@ -293,6 +333,9 @@ pub const Parser = struct {
         // TODO ampersands / multiple interfaces
         const next_ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
         try implements.append(.{
+            .name = next_.value,
+        });
+        try self.namedTypes.append(.{
             .name = next_.value,
         });
 

@@ -1,7 +1,10 @@
 pub const Document = struct {
-    types: []Object = &[_]Object{},
+    objects: []Object = &[_]Object{},
     scalars: []Scalar = &[_]Scalar{},
     interfaces: []Interface = &[_]Interface{},
+    schema: Schema,
+
+    namedTypes: []NamedType = &[_]NamedType{},
 };
 
 pub const Schema = struct {
@@ -12,7 +15,7 @@ pub const Schema = struct {
     mutation: ?NamedType,
     subscription: ?NamedType,
 
-    pos: u64,
+    pos: ?u64 = null,
 };
 
 pub const TypeRef = union {

@@ -13,7 +13,7 @@ fn testmain() !void {
     var _parser = parser.Parser.create(alloc, tokens);
     const doc = try _parser.parse();
 
-    for (doc.types) |ty| {
+    for (doc.objects) |ty| {
         std.debug.print("{s}\n", .{ty.name});
     }
 }
