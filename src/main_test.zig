@@ -7,7 +7,7 @@ fn testmain() !void {
     var dba: std.heap.DebugAllocator(.{}) = .init;
     const alloc = dba.allocator();
 
-    var tokenizer = try lexer.Tokenizer.create("schema.graphql", alloc);
+    var tokenizer = try lexer.Tokenizer.create("test/schema.graphql", alloc);
     const tokens = try tokenizer.tokenize();
 
     var _parser = parser.Parser.create(alloc, tokens);

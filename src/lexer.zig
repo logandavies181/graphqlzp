@@ -180,10 +180,16 @@ pub const Tokenizer = struct {
     }
 
     fn _readStringWhileFunc() fn ([]const u8) bool {
+        // at the very least this isn't threadsafe
         return struct {
             var numDquote: u8 = 0;
             fn func(cp: []const u8) bool {
-                if (numDquote > 1) return false;
+                if (numDquote > 1) {
+                    // _readStringWhileFunc seems to return the same anonymous struct instance
+                    // each time, so we need to reset the var when done.
+                    numDquote = 0;
+                    return false;
+                }
                 if (eq(cp, '"')) {
                     numDquote += 1;
                 }

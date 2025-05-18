@@ -33,7 +33,7 @@ const Himpl = struct {
                     .kind = .markdown,
                     .value =
                         \\```
-                        \\foo!
+                        \\bar!
                         \\```
                 },
             },

@@ -1,0 +1,31 @@
+schema {
+    query: Query
+    mutation: Mutation
+    subscription: Subscription
+}
+
+"The query"
+type Query {
+    # This isn't implemented yet
+    # "field description"
+    foo: Bar
+    nonNullFoo: Bar!
+    listFoo: [Bar]
+    listNonNullFoo: [Bar!]
+    nonNullListNonNullFoo: [Bar!]!
+    fooWithArgs(in: String): Bar
+}
+
+type Mutation {
+    doFoo: Bar
+}
+
+type Subscription {
+    subscribeFoo: Bar
+}
+
+type Bar {
+    zar: Zaz
+}
+
+scalar Zaz
