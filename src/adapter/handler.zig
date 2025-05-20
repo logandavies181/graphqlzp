@@ -36,7 +36,7 @@ pub fn handler(self: *Handler) _handler {
 fn hover(_: *anyopaque, _: lsp.types.HoverParams) Error!?lsp.types.Hover {
     return .{
         .contents = .{
-            .MarkupContent = .{ .kind = .markdown, .value = 
+            .MarkupContent = .{ .kind = .markdown, .value =
             \\```
             \\zar!
             \\```
@@ -63,10 +63,10 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
         else
             furi;
 
-    var tokenizer = try lexer.Tokenizer.create(fname, self.alloc);
-    const tokens = try tokenizer.tokenize();
+    var lexResult = try lexer.tokenize(self.alloc, fname);
+    defer lexResult.deinit(self.alloc);
 
-    var _parser = parser.Parser.create(self.alloc, tokens);
+    var _parser = parser.Parser.create(self.alloc, lexResult.tokens);
     const doc = try _parser.parse();
 
     const locator = try Locator.Locator.init(doc, self.alloc);

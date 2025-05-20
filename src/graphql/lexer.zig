@@ -35,8 +35,26 @@ pub const Error = error{
     internalNullNBytes,
 };
 
-pub const Tokenizer = struct {
-    allocator: std.mem.Allocator,
+pub const LexResult = struct {
+    tokens: []Token,
+    _data: []const u8,
+
+    pub fn deinit(self: *LexResult, alloc: std.mem.Allocator) void {
+        alloc.free(self._data);
+        alloc.free(self.tokens);
+    }
+};
+
+pub fn tokenize(alloc: std.mem.Allocator, path: []const u8) !LexResult {
+    var tokenizer = try Tokenizer.create(alloc, path);
+    const tokens = try tokenizer.tokenize(alloc);
+    return .{
+        .tokens = tokens,
+        ._data = tokenizer.buf,
+    };
+}
+
+const Tokenizer = struct {
     buf: []u8,
     iter: unicode.Utf8Iterator,
 
@@ -44,22 +62,21 @@ pub const Tokenizer = struct {
     pos: u64 = 0,
     currentOffset: u64 = 0,
 
-    pub fn create(path: []const u8, allocator: std.mem.Allocator) !Tokenizer {
+    fn create(alloc: std.mem.Allocator, path: []const u8) !Tokenizer {
         const file = try std.fs.cwd().openFile(path, .{});
-        const buf = try file.readToEndAlloc(allocator, 65535);
+        const buf = try file.readToEndAlloc(alloc, 65535);
 
         var view = try unicode.Utf8View.init(buf);
         const iter = view.iterator();
 
         return .{
-            .allocator = allocator,
             .buf = buf,
             .iter = iter,
         };
     }
 
-    pub fn tokenize(self: *Tokenizer) ![]Token {
-        var tokens = std.ArrayList(Token).init(self.allocator);
+    fn tokenize(self: *Tokenizer, alloc: std.mem.Allocator) ![]Token {
+        var tokens = std.ArrayList(Token).init(alloc);
 
         while (true) {
             const next = self.iter.peek(1);
