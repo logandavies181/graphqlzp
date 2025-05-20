@@ -26,36 +26,21 @@ pub const Locator = struct {
         var locations = std.ArrayList(location).init(alloc);
 
         for (doc.objects) |item| {
-            try locations.append(.{
-                .item = .{
-                    .object = item,
-                },
-                .len = item.name.len,
-                .offset = item.offset,
-                .lineNum = item.lineNum
-            });
+            try locations.append(.{ .item = .{
+                .object = item,
+            }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
         }
 
         for (doc.scalars) |item| {
-            try locations.append(.{
-                .item = .{
-                    .scalar = item,
-                },
-                .len = item.name.len,
-                .offset = item.offset,
-                .lineNum = item.lineNum
-            });
+            try locations.append(.{ .item = .{
+                .scalar = item,
+            }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
         }
 
         for (doc.interfaces) |item| {
-            try locations.append(.{
-                .item = .{
-                    .interface = item,
-                },
-                .len = item.name.len,
-                .offset = item.offset,
-                .lineNum = item.lineNum
-            });
+            try locations.append(.{ .item = .{
+                .interface = item,
+            }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
         }
 
         return .{

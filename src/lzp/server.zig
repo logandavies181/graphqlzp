@@ -327,11 +327,9 @@ fn registerCapability(server: *Server, method: []const u8) Error!void {
     server.allocator.free(json_message);
 }
 
-fn requestConfiguration(_: *Server) Error!void {
-}
+fn requestConfiguration(_: *Server) Error!void {}
 
-fn handleConfiguration(_: *Server, _: std.json.Value) error{OutOfMemory}!void {
-}
+fn handleConfiguration(_: *Server, _: std.json.Value) error{OutOfMemory}!void {}
 
 // TODO
 // fn didChangeWorkspaceFoldersHandler(server: *Server, arena: std.mem.Allocator, notification: types.DidChangeWorkspaceFoldersParams) Error!void {

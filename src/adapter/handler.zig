@@ -36,13 +36,11 @@ pub fn handler(self: *Handler) _handler {
 fn hover(_: *anyopaque, _: lsp.types.HoverParams) Error!?lsp.types.Hover {
     return .{
         .contents = .{
-            .MarkupContent = .{
-                .kind = .markdown,
-                .value =
-                    \\```
-                    \\zar!
-                    \\```
-            },
+            .MarkupContent = .{ .kind = .markdown, .value = 
+            \\```
+            \\zar!
+            \\```
+        },
         },
     };
 }

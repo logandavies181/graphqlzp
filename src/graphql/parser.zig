@@ -314,7 +314,6 @@ pub const Parser = struct {
                     } else {
                         return Error.badParse;
                     }
-
                 },
                 else => return Error.badParse,
             }
@@ -352,7 +351,7 @@ pub const Parser = struct {
 
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {
         var args: ?[]Arg = null;
-        const colOrParen = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon, .lparen});
+        const colOrParen = try self.iter.requireNextMeaningful(&[_]TokenKind{ .colon, .lparen });
 
         if (colOrParen.kind == TokenKind.lparen) {
             args = try self.parseArgs();

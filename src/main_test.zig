@@ -14,7 +14,7 @@ fn testmain() !void {
     const doc = try _parser.parse();
 
     for (doc.objects) |ty| {
-        std.debug.print("{s} at line: {d}, offset: {d}\n", .{ty.name, ty.lineNum, ty.offset});
+        std.debug.print("{s} at line: {d}, offset: {d}\n", .{ ty.name, ty.lineNum, ty.offset });
     }
 }
 
