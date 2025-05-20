@@ -25,8 +25,8 @@ pub const TokenKind = enum {
 pub const Token = struct {
     kind: TokenKind,
     value: []const u8,
-    startPos: u64,
     lineNum: u64,
+    offset: u64,
 };
 
 pub const Error = error{
@@ -42,6 +42,7 @@ pub const Tokenizer = struct {
 
     lineNum: u64 = 0,
     pos: u64 = 0,
+    currentOffset: u64 = 0,
 
     pub fn create(path: []const u8, allocator: std.mem.Allocator) !Tokenizer {
         const file = try std.fs.cwd().openFile(path, .{});
@@ -73,7 +74,6 @@ pub const Tokenizer = struct {
                 token = self.readWhiteSpace();
             } else if (isNewLine(next)) {
                 token = try self.readNewLine(next[0]);
-                self.lineNum += 1;
             } else if (eq(next, '#')) {
                 token = self.readComment();
             } else if (eq(next, '{')) {
@@ -147,20 +147,35 @@ pub const Tokenizer = struct {
         return self.readWhile(.comment, notNewLine);
     }
 
-    // really not sure about this but the spec seems to imply a long carriage return is a valid line terminator
     fn readNewLine(self: *Tokenizer, char: u8) !Token {
-        if (char == '\r') {
-            // specifically avoiding advancing self.pos by calling this instead of readchar
-            _ = self.readChar();
-            const next = self.iter.peek(1);
-            if (eq(next, '\n')) {
-                return try self.nextNBytesAs(.newline, 2);
+        const ret = blk: {
+            if (char == '\n') {
+                break :blk self.nextCharAs(.newline);
             }
-        }
-        return self.nextCharAs(.newline);
+
+            const next = self.iter.peek(2);
+            if (std.mem.eql(u8, next, "\r\n")) {
+                break :blk try self.nextNBytesAs(.newline, 2);
+            }
+
+            // I really cannot fathom why but the spec clearly says a lone carriage
+            // return is a valid line terminator. I don't condone this, and I also
+            // don't condone anyone who has random carriage returns in their file and
+            // expects things to work correctly.
+            //
+            // This will not work correctly and whoever comes across this deserves as
+            // such.
+            break :blk self.nextCharAs(.newline);
+        };
+
+        self.currentOffset = 0;
+        self.lineNum += 1;
+
+        return ret;
     }
 
     fn readStringOrBlock(self: *Tokenizer) !Token {
+        // TODO: check if next todo still needs doing
         // TODO: don't include quotes in the value
 
         const next3 = self.iter.peek(3);
@@ -203,6 +218,7 @@ pub const Tokenizer = struct {
 
     fn readBlock(self: *Tokenizer) Token {
         const startPos = self.pos;
+        const offset = self.currentOffset;
         self.discardNChars(3);
 
         var len: u64 = 6;
@@ -221,13 +237,14 @@ pub const Tokenizer = struct {
         return .{
             .kind = .string,
             .value = val,
-            .startPos = startPos,
             .lineNum = self.lineNum,
+            .offset = offset,
         };
     }
 
     fn readWhile(self: *Tokenizer, kind: TokenKind, predicate: fn ([]const u8) bool) Token {
         const startPos = self.pos;
+        const offset = self.currentOffset;
         var len: u64 = 0;
         while (predicate(self.iter.peek(1))) {
             const next = self.readChar();
@@ -243,28 +260,34 @@ pub const Tokenizer = struct {
         return .{
             .kind = kind,
             .value = val,
-            .startPos = startPos,
             .lineNum = self.lineNum,
+            .offset = offset,
         };
     }
 
     fn readChar(self: *Tokenizer) ?[]const u8 {
+        self.currentOffset += 1;
         return self.iter.nextCodepointSlice();
     }
 
     fn nextCharAs(self: *Tokenizer, kind: TokenKind) Token {
+        const offset = self.currentOffset;
+        self.currentOffset += 1;
         // we peek before calling this, so val is never null
         const val = self.readChar().?;
         self.pos += val.len;
         return .{
             .kind = kind,
             .value = val,
-            .startPos = self.pos - val.len,
+            .offset = offset,
             .lineNum = self.lineNum,
         };
     }
 
     fn nextNBytesAs(self: *Tokenizer, kind: TokenKind, numBytes: usize) !Token {
+        const offset = self.currentOffset;
+        self.currentOffset += numBytes;
+
         const startPos = self.pos;
         const val = self.buf[startPos..(startPos + numBytes)];
         self.pos += numBytes;
@@ -287,12 +310,13 @@ pub const Tokenizer = struct {
         return .{
             .kind = kind,
             .value = val,
-            .startPos = startPos,
             .lineNum = self.lineNum,
+            .offset = offset,
         };
     }
 
     fn discardNChars(self: *Tokenizer, numChars: u8) void {
+        self.currentOffset += numChars;
         for (0..numChars) |_| {
             _ = self.readChar();
         }

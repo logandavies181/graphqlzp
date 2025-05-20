@@ -57,32 +57,55 @@ fn gotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) Error!l
 fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
     const self: *Handler = @ptrCast(@alignCast(_self));
 
-    // TODO proper memory management
+    // trim file:// if present
+    const furi = params.textDocument.uri;
+    const fname =
+        if (std.mem.eql(u8, furi[0..7], "file://"))
+            furi[6..]
+        else
+            furi;
 
-    var tokenizer = try lexer.Tokenizer.create("test/schema.graphql", self.alloc);
+    var tokenizer = try lexer.Tokenizer.create(fname, self.alloc);
+    defer self.alloc.free(tokenizer.buf);
     const tokens = try tokenizer.tokenize();
+    defer self.alloc.free(tokens);
 
     var _parser = parser.Parser.create(self.alloc, tokens);
     const doc = try _parser.parse();
 
-    _ = try Locator.Locator.init(doc, self.alloc);
-    //const locator = Locator.Locator.init(doc, self.alloc);
-    // locator.getItemAt(params.textDocument.)
+    const locator = try Locator.Locator.init(doc, self.alloc);
 
-    const uri = params.textDocument.uri;
+    const item = locator.getItemAt(params.position.character - 1, params.position.line - 1);
+
+    if (item == null) {
+        return null;
+    }
+
+    var pos: lsp.types.Position = undefined;
+    var len: u64 = undefined;
+
+    switch (item.?) {
+        .object => |obj| {
+            len = obj.name.len;
+            pos = .{
+                .line = @intCast(obj.lineNum),
+                .character = @intCast(obj.offset),
+            };
+        },
+        else => {
+            return null;
+        },
+    }
 
     return .{
         .Definition = .{
             .Location = .{
-                .uri = uri,
+                .uri = params.textDocument.uri,
                 .range = .{
-                    .start = .{
-                        .line = 0,
-                        .character = 0,
-                    },
+                    .start = pos,
                     .end = .{
-                        .line = 0,
-                        .character = 0,
+                        .line = @intCast(pos.line),
+                        .character = @intCast(pos.character + len),
                     },
                 },
             },

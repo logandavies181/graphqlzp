@@ -84,7 +84,7 @@ pub const Parser = struct {
                                 return Error.badParse;
                             }
 
-                            schema = try self.parseSchema(next.startPos);
+                            schema = try self.parseSchema(next.offset, next.lineNum);
                             schema.?.description = desc;
                             desc = null;
                         },
@@ -117,17 +117,20 @@ pub const Parser = struct {
                 if (memeql(u8, obj.name, "Query")) {
                     query = .{
                         .name = obj.name,
-                        .pos = obj.pos,
+                        .offset = obj.offset,
+                        .lineNum = obj.lineNum,
                     };
                 } else if (memeql(u8, obj.name, "Mutation")) {
                     mutation = .{
                         .name = obj.name,
-                        .pos = obj.pos,
+                        .offset = obj.offset,
+                        .lineNum = obj.lineNum,
                     };
                 } else if (memeql(u8, obj.name, "Subscription")) {
                     subscription = .{
                         .name = obj.name,
-                        .pos = obj.pos,
+                        .offset = obj.offset,
+                        .lineNum = obj.lineNum,
                     };
                 }
             }
@@ -156,7 +159,7 @@ pub const Parser = struct {
             switch (err) {
                 Error.badParse => blk: {
                     const curr = self.iter.current();
-                    std.debug.print("\nBad parse at: {d}. Found: {s}\n", .{ curr.startPos, @tagName(curr.kind) });
+                    std.debug.print("\nBad parse at line: {d}, offset: {d}. Found: {s}\n", .{ curr.lineNum, curr.offset, @tagName(curr.kind) });
                     break :blk err;
                 },
                 else => blk: {
@@ -237,7 +240,9 @@ pub const Parser = struct {
             .description = null, // TODO
             .name = name.value,
             .fields = try fields.toOwnedSlice(),
-            .pos = name.startPos,
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
 
         if (ty == Object) {
@@ -247,7 +252,7 @@ pub const Parser = struct {
         return ret;
     }
 
-    fn parseSchema(self: *Parser, pos: u64) !Schema {
+    fn parseSchema(self: *Parser, offset: u64, lineNum: u64) !Schema {
         var directives: ?[]Directive = null;
         const nextMeaningful = self.iter.peekNextMeaningful();
         if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
@@ -285,7 +290,8 @@ pub const Parser = struct {
                         }
                         query = .{
                             .name = fld.name,
-                            .pos = fld.pos,
+                            .offset = fld.offset,
+                            .lineNum = fld.lineNum,
                         };
                     } else if (memeql(u8, opname, "mutation")) {
                         if (mutation != null) {
@@ -293,7 +299,8 @@ pub const Parser = struct {
                         }
                         mutation = .{
                             .name = fld.name,
-                            .pos = fld.pos,
+                            .offset = fld.offset,
+                            .lineNum = fld.lineNum,
                         };
                     } else if (memeql(u8, opname, "subscription")) {
                         if (subscription != null) {
@@ -301,7 +308,8 @@ pub const Parser = struct {
                         }
                         subscription = .{
                             .name = fld.name,
-                            .pos = fld.pos,
+                            .offset = fld.offset,
+                            .lineNum = fld.lineNum,
                         };
                     } else {
                         return Error.badParse;
@@ -323,7 +331,8 @@ pub const Parser = struct {
             .mutation = mutation,
             .subscription = subscription,
 
-            .pos = pos,
+            .lineNum = lineNum,
+            .offset = offset,
         };
     }
 
@@ -334,7 +343,8 @@ pub const Parser = struct {
         const next_ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
         try implements.append(.{
             .name = next_.value,
-            .pos = next_.startPos,
+            .offset = next_.offset,
+            .lineNum = next_.lineNum,
         });
 
         return try implements.toOwnedSlice();
@@ -361,8 +371,10 @@ pub const Parser = struct {
             .description = description,
             .directives = directives,
             .name = name.value,
-            .pos = name.startPos,
             .type = ty,
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
     }
 
@@ -377,12 +389,13 @@ pub const Parser = struct {
                     nullable = false;
                 }
 
-                // TODO: pos
                 return .{
                     .namedType = .{
                         .name = next.value,
                         .nullable = nullable,
-                        .pos = next.startPos,
+
+                        .offset = next.offset,
+                        .lineNum = next.lineNum,
                     },
                 };
             },
@@ -452,7 +465,9 @@ pub const Parser = struct {
 
         return .{
             .name = name.value,
-            .pos = name.startPos,
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
     }
 };

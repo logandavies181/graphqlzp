@@ -2,7 +2,7 @@ const std = @import("std");
 
 const ast = @import("../graphql/ast.zig");
 
-pub const AstItem = union {
+pub const AstItem = union(enum) {
     schema: ast.Schema,
     scalar: ast.Scalar,
     namedType: ast.NamedType,
@@ -14,8 +14,9 @@ pub const AstItem = union {
 
 pub const location = struct {
     item: AstItem,
-    startPos: u64,
     len: u64,
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const Locator = struct {
@@ -29,8 +30,9 @@ pub const Locator = struct {
                 .item = .{
                     .object = item,
                 },
-                .startPos = item.pos,
                 .len = item.name.len,
+                .offset = item.offset,
+                .lineNum = item.lineNum
             });
         }
 
@@ -39,8 +41,9 @@ pub const Locator = struct {
                 .item = .{
                     .scalar = item,
                 },
-                .startPos = item.pos,
                 .len = item.name.len,
+                .offset = item.offset,
+                .lineNum = item.lineNum
             });
         }
 
@@ -49,8 +52,9 @@ pub const Locator = struct {
                 .item = .{
                     .interface = item,
                 },
-                .startPos = item.pos,
                 .len = item.name.len,
+                .offset = item.offset,
+                .lineNum = item.lineNum
             });
         }
 
@@ -59,16 +63,16 @@ pub const Locator = struct {
         };
     }
 
-    pub fn getItemAt(self: Locator, pos: u64) ?AstItem {
+    pub fn getItemAt(self: Locator, offset: u64, lineNum: u64) ?AstItem {
         for (self.locations) |loc| {
-            if (overlaps(loc, pos)) {
+            if (overlaps(loc, offset, lineNum)) {
                 return loc.item;
             }
         }
         return null;
     }
 
-    fn overlaps(loc: location, pos: u64) bool {
-        return pos >= loc.startPos and pos <= loc.startPos + loc.len;
+    fn overlaps(loc: location, offset: u64, lineNum: u64) bool {
+        return lineNum == loc.lineNum and offset >= loc.offset and offset <= loc.offset + loc.len;
     }
 };

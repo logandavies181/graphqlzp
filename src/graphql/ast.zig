@@ -15,7 +15,8 @@ pub const Schema = struct {
     mutation: ?NamedType,
     subscription: ?NamedType,
 
-    pos: ?u64 = null,
+    offset: ?u64 = null,
+    lineNum: ?u64 = null,
 };
 
 pub const TypeRef = union {
@@ -27,7 +28,8 @@ pub const NamedType = struct {
     name: []const u8,
     nullable: bool = true,
 
-    pos: u64
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const ListType = struct {
@@ -43,7 +45,8 @@ pub const Object = struct {
     nullable: bool = true,
     name: []const u8,
 
-    pos: u64,
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const Field = struct {
@@ -52,7 +55,8 @@ pub const Field = struct {
     name: []const u8,
     type: TypeRef,
 
-    pos: u64,
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const Interface = struct {
@@ -61,7 +65,8 @@ pub const Interface = struct {
     nullable: bool = true,
     fields: []Field,
 
-    pos: u64,
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const Directive = struct {
@@ -85,5 +90,6 @@ pub const Scalar = struct {
     name: []const u8,
     directives: ?[]Directive = null,
 
-    pos: u64,
+    offset: u64,
+    lineNum: u64,
 };
