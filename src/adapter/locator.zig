@@ -73,6 +73,6 @@ pub const Locator = struct {
     }
 
     fn overlaps(loc: location, offset: u64, lineNum: u64) bool {
-        return lineNum == loc.lineNum and offset >= loc.offset and offset <= loc.offset + loc.len;
+        return lineNum == loc.lineNum and offset >= loc.offset and offset < loc.offset + loc.len;
     }
 };

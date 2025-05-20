@@ -66,16 +66,14 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
             furi;
 
     var tokenizer = try lexer.Tokenizer.create(fname, self.alloc);
-    defer self.alloc.free(tokenizer.buf);
     const tokens = try tokenizer.tokenize();
-    defer self.alloc.free(tokens);
 
     var _parser = parser.Parser.create(self.alloc, tokens);
     const doc = try _parser.parse();
 
     const locator = try Locator.Locator.init(doc, self.alloc);
 
-    const item = locator.getItemAt(params.position.character - 1, params.position.line - 1);
+    const item = locator.getItemAt(params.position.character, params.position.line);
 
     if (item == null) {
         return null;
