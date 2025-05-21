@@ -203,7 +203,7 @@ pub const Parser = struct {
     }
 
     fn parse_struct(self: *Parser, ty: type) !ty {
-        const name = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
         var implements: ?[]NamedType = null;
         if (ty == Object) {
@@ -213,18 +213,18 @@ pub const Parser = struct {
                 if (kw != Keyword.implements) {
                     return Error.badParse;
                 }
-                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier}); // impements keyword
+                _ = try self.iter.requireNextMeaningful(&.{.identifier}); // impements keyword
 
                 implements = try self.parseImplements();
             }
         }
 
-        _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.lbrack});
+        _ = try self.iter.requireNextMeaningful(&.{.lbrack});
 
         var fields = std.ArrayList(Field).init(self.alloc);
 
         while (true) {
-            const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .identifier, .rbrack, .string });
+            const next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
             switch (next.kind) {
                 TokenKind.rbrack => break,
                 TokenKind.string => return Error.notImplemented,
@@ -246,7 +246,7 @@ pub const Parser = struct {
         };
 
         if (ty == Object) {
-            ret.implements = implements;
+            ret.implements = implements orelse &.{};
         }
 
         return ret;
@@ -258,7 +258,7 @@ pub const Parser = struct {
         if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
             directives = self.parseDirectives();
         }
-        _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.lbrack});
+        _ = try self.iter.requireNextMeaningful(&.{.lbrack});
 
         var query: ?NamedType = null;
         var mutation: ?NamedType = null;
@@ -267,7 +267,7 @@ pub const Parser = struct {
         var desc: ?[]const u8 = null;
 
         while (true) {
-            const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .identifier, .rbrack, .string });
+            const next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
             switch (next.kind) {
                 TokenKind.rbrack => break,
                 TokenKind.string => {
@@ -325,7 +325,7 @@ pub const Parser = struct {
 
         return .{
             .description = desc,
-            .directives = directives,
+            .directives = directives orelse &.{},
             .query = query.?,
             .mutation = mutation,
             .subscription = subscription,
@@ -339,7 +339,7 @@ pub const Parser = struct {
         var implements = std.ArrayList(NamedType).init(self.alloc);
 
         // TODO ampersands / multiple interfaces
-        const next_ = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
+        const next_ = try self.iter.requireNextMeaningful(&.{.identifier});
         try implements.append(.{
             .name = next_.value,
             .offset = next_.offset,
@@ -351,11 +351,11 @@ pub const Parser = struct {
 
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {
         var args: ?[]Arg = null;
-        const colOrParen = try self.iter.requireNextMeaningful(&[_]TokenKind{ .colon, .lparen });
+        const colOrParen = try self.iter.requireNextMeaningful(&.{ .colon, .lparen });
 
         if (colOrParen.kind == TokenKind.lparen) {
             args = try self.parseArgs();
-            _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
+            _ = try self.iter.requireNextMeaningful(&.{.colon});
         }
 
         const ty = try self.parseTypeRef();
@@ -368,7 +368,7 @@ pub const Parser = struct {
 
         return .{
             .description = description,
-            .directives = directives,
+            .directives = directives orelse &.{},
             .name = name.value,
             .type = ty,
 
@@ -378,13 +378,13 @@ pub const Parser = struct {
     }
 
     fn parseTypeRef(self: *Parser) !TypeRef {
-        const next = try self.iter.requireNextMeaningful(&[_]TokenKind{ .lsqbrack, .identifier });
+        const next = try self.iter.requireNextMeaningful(&.{ .lsqbrack, .identifier });
         return switch (next.kind) {
             TokenKind.identifier => {
                 var nullable = true;
                 const nnext = self.iter.peekNextMeaningful();
                 if (nnext != null and nnext.?.kind == TokenKind.bang) {
-                    _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.bang});
+                    _ = try self.iter.requireNextMeaningful(&.{.bang});
                     nullable = false;
                 }
 
@@ -400,12 +400,12 @@ pub const Parser = struct {
             },
             TokenKind.lsqbrack => {
                 var ty = try self.parseTypeRef();
-                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.rsqbrack});
+                _ = try self.iter.requireNextMeaningful(&.{.rsqbrack});
 
                 var nullable = true;
                 const nnext = self.iter.peekNextMeaningful();
                 if (nnext != null and nnext.?.kind == TokenKind.bang) {
-                    _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.bang});
+                    _ = try self.iter.requireNextMeaningful(&.{.bang});
                     nullable = false;
                 }
 
@@ -427,7 +427,7 @@ pub const Parser = struct {
             if (peeked == null) {
                 return Error.noneNext;
             } else if (peeked.?.kind == TokenKind.rparen) {
-                _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.rparen});
+                _ = try self.iter.requireNextMeaningful(&.{.rparen});
                 break;
             }
 
@@ -438,8 +438,8 @@ pub const Parser = struct {
     }
 
     fn parseArg(self: *Parser) !Arg {
-        const name = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
-        _ = try self.iter.requireNextMeaningful(&[_]TokenKind{.colon});
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
+        _ = try self.iter.requireNextMeaningful(&.{.colon});
         const ty = try self.parseTypeRef();
 
         return .{
@@ -458,7 +458,7 @@ pub const Parser = struct {
     }
 
     fn parseScalar(self: *Parser) !Scalar {
-        const name = try self.iter.requireNextMeaningful(&[_]TokenKind{.identifier});
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
         // TODO: directives
 

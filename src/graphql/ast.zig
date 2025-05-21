@@ -9,7 +9,7 @@ pub const Document = struct {
 
 pub const Schema = struct {
     description: ?[]const u8 = null,
-    directives: ?[]Directive = null,
+    directives: []Directive = &[_]Directive{},
 
     query: NamedType,
     mutation: ?NamedType,
@@ -39,9 +39,9 @@ pub const ListType = struct {
 
 pub const Object = struct {
     description: ?[]const u8 = null,
-    directives: ?[]Directive = null,
+    directives: []Directive = &[_]Directive{},
     fields: []Field,
-    implements: ?[]NamedType = null,
+    implements: []NamedType = &[_]NamedType{},
     nullable: bool = true,
     name: []const u8,
 
@@ -51,7 +51,7 @@ pub const Object = struct {
 
 pub const Field = struct {
     description: ?[]const u8 = null,
-    directives: ?[]Directive = null,
+    directives: []Directive = &[_]Directive{},
     name: []const u8,
     type: TypeRef,
 
@@ -88,7 +88,7 @@ pub const Arg = struct {
 pub const Scalar = struct {
     description: ?[]const u8 = null,
     name: []const u8,
-    directives: ?[]Directive = null,
+    directives: []Directive = &[_]Directive{},
 
     offset: u64,
     lineNum: u64,
