@@ -19,6 +19,17 @@ pub const location = struct {
     lineNum: u64,
 };
 
+fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
+    return switch (tr) {
+        .namedType => |nt| {
+            return nt;
+        },
+        .listType => |lt| {
+            return getNamedTypeFromTypeRef(lt.ty.*);
+        },
+    };
+}
+
 pub const Locator = struct {
     locations: []location,
 
@@ -29,6 +40,16 @@ pub const Locator = struct {
             try locations.append(.{ .item = .{
                 .object = item,
             }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+            for (item.implements) |impl| {
+                try locations.append(.{ .item = .{
+                    .namedType = impl,
+                }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+            }
+            for (item.fields) |fld| {
+                try locations.append(.{ .item = .{
+                    .namedType = getNamedTypeFromTypeRef(fld.type),
+                }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+            }
         }
 
         for (doc.scalars) |item| {

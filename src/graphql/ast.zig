@@ -19,7 +19,7 @@ pub const Schema = struct {
     lineNum: ?u64 = null,
 };
 
-pub const TypeRef = union {
+pub const TypeRef = union(enum) {
     namedType: NamedType,
     listType: ListType,
 };

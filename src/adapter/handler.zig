@@ -88,6 +88,29 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
                 .character = @intCast(obj.offset),
             };
         },
+        .namedType => |nt| {
+            const memeql = std.mem.eql;
+            for (doc.objects) |obj| {
+                if (memeql(u8, obj.name, nt.name)) {
+                    len = obj.name.len;
+                    pos = .{
+                        .line = @intCast(obj.lineNum),
+                        .character = @intCast(obj.offset),
+                    };
+                    break;
+                }
+            }
+            for (doc.interfaces) |ifce| {
+                if (memeql(u8, ifce.name, nt.name)) {
+                    len = ifce.name.len;
+                    pos = .{
+                        .line = @intCast(ifce.lineNum),
+                        .character = @intCast(ifce.offset),
+                    };
+                    break;
+                }
+            }
+        },
         else => {
             return null;
         },
