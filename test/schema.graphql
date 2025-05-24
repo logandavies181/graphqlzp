@@ -29,3 +29,11 @@ type Bar {
 }
 
 scalar Zaz
+
+interface Face {
+    zar: Zaz
+}
+
+type FooFace implements Face {
+    zar: Zaz
+}

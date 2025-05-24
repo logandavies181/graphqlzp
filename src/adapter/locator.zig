@@ -43,7 +43,7 @@ pub const Locator = struct {
             for (item.implements) |impl| {
                 try locations.append(.{ .item = .{
                     .namedType = impl,
-                }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+                }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
             }
             for (item.fields) |fld| {
                 const nt = getNamedTypeFromTypeRef(fld.type);
