@@ -19,7 +19,7 @@ pub const location = struct {
     lineNum: u64,
 };
 
-fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
+pub fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
     return switch (tr) {
         .namedType => |nt| {
             return nt;
@@ -46,9 +46,11 @@ pub const Locator = struct {
                 }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
             }
             for (item.fields) |fld| {
+                const nt = getNamedTypeFromTypeRef(fld.type);
+                //std.debug.print("found {s}\n", .{nt.name});
                 try locations.append(.{ .item = .{
-                    .namedType = getNamedTypeFromTypeRef(fld.type),
-                }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+                    .namedType = nt,
+                }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
             }
         }
 

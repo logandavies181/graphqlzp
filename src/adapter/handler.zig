@@ -63,8 +63,10 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
         else
             furi;
 
-    var lexResult = try lexer.tokenize(self.alloc, fname);
-    defer lexResult.deinit(self.alloc);
+    const lexResult = try lexer.tokenize(self.alloc, fname);
+    // TODO
+    // var lexResult = try lexer.tokenize(self.alloc, fname);
+    // defer lexResult.deinit(self.alloc);
 
     var _parser = parser.Parser.create(self.alloc, lexResult.tokens);
     const doc = try _parser.parse();
@@ -74,6 +76,7 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
     const item = locator.getItemAt(params.position.character, params.position.line);
 
     if (item == null) {
+        std.debug.print("nothing found\n", .{}); // TODO
         return null;
     }
 
@@ -88,7 +91,7 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
                 .character = @intCast(obj.offset),
             };
         },
-        .namedType => |nt| {
+        .namedType => |nt| blk: {
             const memeql = std.mem.eql;
             for (doc.objects) |obj| {
                 if (memeql(u8, obj.name, nt.name)) {
@@ -97,7 +100,7 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
                         .line = @intCast(obj.lineNum),
                         .character = @intCast(obj.offset),
                     };
-                    break;
+                    break :blk;
                 }
             }
             for (doc.interfaces) |ifce| {
@@ -107,7 +110,7 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
                         .line = @intCast(ifce.lineNum),
                         .character = @intCast(ifce.offset),
                     };
-                    break;
+                    break :blk;
                 }
             }
         },

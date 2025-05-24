@@ -399,7 +399,9 @@ pub const Parser = struct {
                 };
             },
             TokenKind.lsqbrack => {
-                var ty = try self.parseTypeRef();
+                // TODO cleanup
+                const ty = try self.alloc.create(TypeRef);
+                ty.* = try self.parseTypeRef();
                 _ = try self.iter.requireNextMeaningful(&.{.rsqbrack});
 
                 var nullable = true;
@@ -411,7 +413,7 @@ pub const Parser = struct {
 
                 return .{
                     .listType = .{
-                        .ty = &ty,
+                        .ty = ty,
                         .nullable = nullable,
                     },
                 };
