@@ -16,7 +16,7 @@ type Query {
     listFoo: [Bar]
     listNonNullFoo: [Bar!]
     nonNullListNonNullFoo: [Bar!]!
-    fooWithArgs(in: String): Bar
+    fooWithArgs(in: Bar): Bar
 }
 
 type Mutation {
