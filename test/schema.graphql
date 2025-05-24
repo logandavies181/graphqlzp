@@ -4,9 +4,12 @@ schema {
     subscription: Subscription
 }
 
+# Some comment. Btw, commas are fully ignored
+,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
 "The query"
 type Query {
-    # This isn't implemented yet
+    # TODO This isn't implemented yet
     # "field description"
     foo: Bar
     nonNullFoo: Bar!

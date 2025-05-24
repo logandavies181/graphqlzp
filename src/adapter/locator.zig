@@ -30,6 +30,35 @@ pub fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
     };
 }
 
+fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !void {
+    try locations.append(.{ .item = .{
+        .object = obj,
+    }, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
+
+
+    if (ty == ast.Object) {
+        for (obj.implements) |impl| {
+            try locations.append(.{ .item = .{
+                .namedType = impl,
+            }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
+        }
+    }
+
+    for (obj.fields) |fld| {
+        const nt = getNamedTypeFromTypeRef(fld.type);
+        try locations.append(.{ .item = .{
+            .namedType = nt,
+        }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
+
+        for (fld.args) |arg| {
+            const _nt = getNamedTypeFromTypeRef(arg.ty);
+            try locations.append(.{ .item = .{
+                .namedType = _nt,
+            }, .len = _nt.name.len, .offset = _nt.offset, .lineNum = _nt.lineNum });
+        }
+    }
+}
+
 pub const Locator = struct {
     locations: []location,
 
@@ -37,20 +66,7 @@ pub const Locator = struct {
         var locations = std.ArrayList(location).init(alloc);
 
         for (doc.objects) |item| {
-            try locations.append(.{ .item = .{
-                .object = item,
-            }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
-            for (item.implements) |impl| {
-                try locations.append(.{ .item = .{
-                    .namedType = impl,
-                }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
-            }
-            for (item.fields) |fld| {
-                const nt = getNamedTypeFromTypeRef(fld.type);
-                try locations.append(.{ .item = .{
-                    .namedType = nt,
-                }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
-            }
+            try locateObjectFields(ast.Object, item, &locations);
         }
 
         for (doc.scalars) |item| {

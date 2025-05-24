@@ -54,6 +54,7 @@ pub const Field = struct {
     directives: []Directive = &[_]Directive{},
     name: []const u8,
     type: TypeRef,
+    args: []Arg = &[_]Arg{},
 
     offset: u64,
     lineNum: u64,

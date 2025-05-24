@@ -392,6 +392,7 @@ pub const Parser = struct {
         }
 
         return .{
+            .args = args orelse &.{},
             .description = description,
             .directives = directives orelse &.{},
             .name = name.value,
