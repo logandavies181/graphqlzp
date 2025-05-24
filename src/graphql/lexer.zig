@@ -289,7 +289,6 @@ const Tokenizer = struct {
 
     fn nextCharAs(self: *Tokenizer, kind: TokenKind) Token {
         const offset = self.currentOffset;
-        self.currentOffset += 1;
         // we peek before calling this, so val is never null
         const val = self.readChar().?;
         self.pos += val.len;

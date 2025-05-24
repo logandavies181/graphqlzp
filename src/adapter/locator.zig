@@ -47,7 +47,6 @@ pub const Locator = struct {
             }
             for (item.fields) |fld| {
                 const nt = getNamedTypeFromTypeRef(fld.type);
-                //std.debug.print("found {s}\n", .{nt.name});
                 try locations.append(.{ .item = .{
                     .namedType = nt,
                 }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
