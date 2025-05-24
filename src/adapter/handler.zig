@@ -113,6 +113,17 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
                     break :blk;
                 }
             }
+            for (doc.scalars) |scl| {
+                if (memeql(u8, scl.name, nt.name)) {
+                    len = scl.name.len;
+                    pos = .{
+                        .line = @intCast(scl.lineNum),
+                        .character = @intCast(scl.offset),
+                    };
+                    break :blk;
+                }
+            }
+            return null;
         },
         else => {
             return null;
