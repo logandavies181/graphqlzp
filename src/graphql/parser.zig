@@ -205,17 +205,56 @@ pub const Parser = struct {
     fn parse_struct(self: *Parser, ty: type) !ty {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        var implements: ?[]NamedType = null;
-        if (ty == Object) {
-            const next_ = self.iter.peekNextMeaningful();
-            if (next_ != null and next_.?.kind == TokenKind.identifier) {
-                const kw = checkKeyword(next_.?.value);
-                if (kw != Keyword.implements) {
+        var implements = std.ArrayList(NamedType).init(self.alloc);
+        if (ty == Object) blk: {
+            const _next = self.iter.peekNextMeaningful();
+            if (_next == null) {
+                return Error.badParse;
+            }
+
+            if (_next.?.kind != TokenKind.identifier) {
+                break :blk;
+            }
+
+            const kw = checkKeyword(_next.?.value);
+            if (kw != Keyword.implements) {
+                return Error.badParse;
+            }
+
+            _ = try self.iter.requireNextMeaningful(&.{.identifier});
+
+            var lastWasAmp = true;
+            while (true) {
+                const next = self.iter.peekNextMeaningful();
+                if (next == null) {
                     return Error.badParse;
                 }
-                _ = try self.iter.requireNextMeaningful(&.{.identifier}); // impements keyword
 
-                implements = try self.parseImplements();
+                switch (next.?.kind) {
+                    TokenKind.identifier => {
+                        if (!lastWasAmp) {
+                            return Error.badParse;
+                        }
+                        lastWasAmp = false;
+
+                        _ = try self.iter.requireNextMeaningful(&.{.identifier}); // impements keyword
+
+                        try implements.append(.{
+                            .name = next.?.value,
+                            .offset = next.?.offset,
+                            .lineNum = next.?.lineNum,
+                        });
+                    },
+                    TokenKind.ampersand => {
+                        if (lastWasAmp) {
+                            return Error.badParse;
+                        }
+                        lastWasAmp = true;
+                        _ = try self.iter.requireNextMeaningful(&.{.ampersand});
+                    },
+                    TokenKind.lbrack => break,
+                    else => return Error.badParse,
+                }
             }
         }
 
@@ -246,7 +285,7 @@ pub const Parser = struct {
         };
 
         if (ty == Object) {
-            ret.implements = implements orelse &.{};
+            ret.implements = try implements.toOwnedSlice();
         }
 
         return ret;
@@ -333,20 +372,6 @@ pub const Parser = struct {
             .lineNum = lineNum,
             .offset = offset,
         };
-    }
-
-    fn parseImplements(self: *Parser) ![]NamedType {
-        var implements = std.ArrayList(NamedType).init(self.alloc);
-
-        // TODO ampersands / multiple interfaces
-        const next_ = try self.iter.requireNextMeaningful(&.{.identifier});
-        try implements.append(.{
-            .name = next_.value,
-            .offset = next_.offset,
-            .lineNum = next_.lineNum,
-        });
-
-        return try implements.toOwnedSlice();
     }
 
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {

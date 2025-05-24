@@ -99,6 +99,8 @@ const Tokenizer = struct {
                 token = self.nextCharAs(.rbrack);
             } else if (eq(next, '@')) {
                 token = self.nextCharAs(.at);
+            } else if (eq(next, '&')) {
+                token = self.nextCharAs(.ampersand);
             } else if (eq(next, ':')) {
                 token = self.nextCharAs(.colon);
             } else if (eq(next, '!')) {

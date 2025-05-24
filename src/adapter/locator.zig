@@ -63,6 +63,12 @@ pub const Locator = struct {
             try locations.append(.{ .item = .{
                 .interface = item,
             }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+            for (item.fields) |fld| {
+                const nt = getNamedTypeFromTypeRef(fld.type);
+                try locations.append(.{ .item = .{
+                    .namedType = nt,
+                }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
+            }
         }
 
         return .{

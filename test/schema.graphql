@@ -34,6 +34,10 @@ interface Face {
     zar: Zaz
 }
 
-type FooFace implements Face {
+interface OtherFace {
+    zar: Zaz
+}
+
+type FooFace implements Face & OtherFace {
     zar: Zaz
 }
