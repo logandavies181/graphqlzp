@@ -171,7 +171,7 @@ pub const Parser = struct {
             switch (err) {
                 Error.badParse => blk: {
                     const curr = self.iter.current();
-                    std.debug.print("\nBad parse at line: {d}, offset: {d}. Found: {s}\n", .{ curr.lineNum, curr.offset, @tagName(curr.kind) });
+                    std.debug.print("\nBad parse at line: {d}, offset: {d}. Found: {s}\n", .{ curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
                     break :blk err;
                 },
                 else => blk: {
@@ -184,7 +184,7 @@ pub const Parser = struct {
     fn checkKeyword(id: []const u8) Keyword {
         const memeql = std.mem.eql;
         return if (memeql(u8, id, "directive"))
-            .interface
+            .directive
         else if (memeql(u8, id, "implements"))
             .implements
         else if (memeql(u8, id, "interface"))
