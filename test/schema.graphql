@@ -45,3 +45,7 @@ type FooFace implements Face & OtherFace {
 }
 
 directive @goober on FIELD
+
+type Fuck {
+    zar: Zaz
+}

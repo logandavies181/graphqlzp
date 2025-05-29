@@ -84,6 +84,7 @@ pub const DirectiveDef = struct {
 };
 
 pub const DirectiveLocation = enum {
+    unknown,
     query,
     mutation,
     subscription,

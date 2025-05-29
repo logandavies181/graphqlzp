@@ -170,6 +170,7 @@ pub const Parser = struct {
         return self.tryParse() catch |err|
             switch (err) {
                 Error.badParse => blk: {
+                    _ = self.iter.next();
                     const curr = self.iter.current();
                     std.debug.print("\nBad parse at line: {d}, offset: {d}. Found: {s}\n", .{ curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
                     break :blk err;
@@ -199,6 +200,50 @@ pub const Parser = struct {
             .schema
         else if (memeql(u8, id, "type"))
             .type
+        else
+            .unknown;
+    }
+
+    fn checkDirectiveLocation(loc: []const u8) DirectiveLocation {
+        const memeql = std.mem.eql;
+        return if (memeql(u8, loc, "QUERY"))
+            .query
+        else if (memeql(u8, loc, "MUTATION"))
+            .mutation
+        else if (memeql(u8, loc, "SUBSCRIPTION"))
+            .subscription
+        else if (memeql(u8, loc, "FIELD"))
+            .field
+        else if (memeql(u8, loc, "FRAGMENT_DEFINITION"))
+            .fragmentDefinition
+        else if (memeql(u8, loc, "FRAGMENT_SPREAD"))
+            .fragmentSpread
+        else if (memeql(u8, loc, "INLINE_FRAGMENT"))
+            .inlineFragment
+        else if (memeql(u8, loc, "VARIABLE_DEFINITION"))
+            .variableDefinition
+        else if (memeql(u8, loc, "SCHEMA"))
+            .schema
+        else if (memeql(u8, loc, "SCALAR"))
+            .scalar
+        else if (memeql(u8, loc, "OBJECT"))
+            .fieldDefinition
+        else if (memeql(u8, loc, "FIELD_DEFINITION"))
+            .argumentDefinition
+        else if (memeql(u8, loc, "ARGUMENT_DEFINITION"))
+            .interface
+        else if (memeql(u8, loc, "INTERFACE"))
+            .interface
+        else if (memeql(u8, loc, "UNION"))
+            .union_
+        else if (memeql(u8, loc, "ENUM"))
+            .enum_
+        else if (memeql(u8, loc, "ENUM_VALUE"))
+            .enumValue
+        else if (memeql(u8, loc, "INPUT_OBJECT"))
+            .inputObject
+        else if (memeql(u8, loc, "INPUT_FIELD_DEFINITION"))
+            .inputFieldDefinition
         else
             .unknown;
     }
@@ -545,19 +590,49 @@ pub const Parser = struct {
             else => return Error.badParse,
         }
 
-        const _next = try self.iter.requireNextMeaningful(&.{.identifier});
-        var locations: []DirectiveLocation = &.{};
-        if (std.mem.eql(u8, _next.value, "FIELD")) {
-            const ptr = try self.alloc.alloc(DirectiveLocation, 1);
-            ptr[0] = DirectiveLocation.field;
-            locations = ptr;
+        var locations = std.ArrayList(DirectiveLocation).init(self.alloc);
+        var lastWasBar = true;
+        while (true) {
+            const _next = self.iter.requireNextMeaningful(&.{.identifier, .bar}) catch |err| {
+                if (err == Error.noneNext) {
+                    break;
+                } else {
+                    return err;
+                }
+            };
+            switch (_next.kind) {
+                .identifier => {
+                    if (!lastWasBar) {
+                        if (checkDirectiveLocation(_next.value) == .unknown) {
+                            self.iter.unread();
+                            break;
+                        }
+                        return Error.badParse;
+                    }
+                    const directiveLoc = checkDirectiveLocation(_next.value);
+                    switch (directiveLoc) {
+                        .unknown => break,
+                        else => {
+                            try locations.append(directiveLoc);
+                        },
+                    }
+                    lastWasBar = false;
+                },
+                .bar => {
+                    if (lastWasBar) {
+                        return Error.badParse;
+                    }
+                    lastWasBar = true;
+                },
+                else => unreachable,
+            }
         }
 
         return .{
             .name = name.value,
             .args = args,
             .repeatable = repeatable,
-            .locations = locations,
+            .locations = try locations.toOwnedSlice(),
         };
     }
 
@@ -594,6 +669,12 @@ const Iterator = struct {
 
     fn current(self: *Iterator) Token {
         return self.tokens[self.index];
+    }
+
+    fn unread(self: *Iterator) void {
+        if (self.index > 0) {
+            self.index -= 1;
+        }
     }
 
     fn next(self: *Iterator) ?Token {
