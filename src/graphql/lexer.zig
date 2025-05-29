@@ -20,6 +20,7 @@ pub const TokenKind = enum {
     dquote,
     string,
     ampersand,
+    bar,
 };
 
 pub const Token = struct {
@@ -101,6 +102,8 @@ const Tokenizer = struct {
                 token = self.nextCharAs(.at);
             } else if (eq(next, '&')) {
                 token = self.nextCharAs(.ampersand);
+            } else if (eq(next, '|')) {
+                token = self.nextCharAs(.bar);
             } else if (eq(next, ':')) {
                 token = self.nextCharAs(.colon);
             } else if (eq(next, '!')) {

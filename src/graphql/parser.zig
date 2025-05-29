@@ -7,6 +7,8 @@ const TokenKind = lexer.TokenKind;
 const ast = @import("ast.zig");
 const Arg = ast.Arg;
 const Directive = ast.Directive;
+const DirectiveDef = ast.DirectiveDef;
+const DirectiveLocation = ast.DirectiveLocation;
 const Document = ast.Document;
 const Field = ast.Field;
 const Interface = ast.Interface;
@@ -18,8 +20,11 @@ const TypeRef = ast.TypeRef;
 
 const Keyword = enum {
     unknown,
+    directive,
     implements,
     interface,
+    on,
+    repeatable,
     scalar,
     schema,
     type,
@@ -45,8 +50,9 @@ pub const Parser = struct {
     }
 
     fn tryParse(self: *Parser) !Document {
-        var objects = std.ArrayList(Object).init(self.alloc);
+        var directiveDefs = std.ArrayList(DirectiveDef).init(self.alloc);
         var interfaces = std.ArrayList(Interface).init(self.alloc);
+        var objects = std.ArrayList(Object).init(self.alloc);
         var scalars = std.ArrayList(Scalar).init(self.alloc);
         var schema: ?Schema = null;
 
@@ -61,11 +67,11 @@ pub const Parser = struct {
             switch (next.kind) {
                 TokenKind.identifier => {
                     switch (checkKeyword(next.value)) {
-                        .type => {
-                            var item = try self.parseObject();
+                        .directive => {
+                            var item = try self.parseDirectiveDef();
                             item.description = desc;
                             desc = null;
-                            try objects.append(item);
+                            try directiveDefs.append(item);
                         },
                         .interface => {
                             var item = try self.parseInterface();
@@ -87,6 +93,12 @@ pub const Parser = struct {
                             schema = try self.parseSchema(next.offset, next.lineNum);
                             schema.?.description = desc;
                             desc = null;
+                        },
+                        .type => {
+                            var item = try self.parseObject();
+                            item.description = desc;
+                            desc = null;
+                            try objects.append(item);
                         },
                         else => return Error.badParse,
                     }
@@ -171,16 +183,22 @@ pub const Parser = struct {
 
     fn checkKeyword(id: []const u8) Keyword {
         const memeql = std.mem.eql;
-        return if (memeql(u8, id, "type"))
-            .type
+        return if (memeql(u8, id, "directive"))
+            .interface
         else if (memeql(u8, id, "implements"))
             .implements
         else if (memeql(u8, id, "interface"))
             .interface
+        else if (memeql(u8, id, "on"))
+            .on
+        else if (memeql(u8, id, "repeatable"))
+            .repeatable
         else if (memeql(u8, id, "scalar"))
             .scalar
         else if (memeql(u8, id, "schema"))
             .schema
+        else if (memeql(u8, id, "type"))
+            .type
         else
             .unknown;
     }
@@ -262,13 +280,20 @@ pub const Parser = struct {
 
         var fields = std.ArrayList(Field).init(self.alloc);
 
+        var desc: ?[]const u8 = null;
         while (true) {
             const next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
             switch (next.kind) {
                 TokenKind.rbrack => break,
-                TokenKind.string => return Error.notImplemented,
+                TokenKind.string => {
+                    if (desc == null) {
+                        desc = next.value;
+                    } else {
+                        return Error.badParse;
+                    }
+                },
                 TokenKind.identifier => {
-                    const fld = try self.parseFieldDef(next, null);
+                    const fld = try self.parseFieldDef(next, desc);
                     try fields.append(fld);
                 },
                 else => return Error.badParse,
@@ -483,6 +508,57 @@ pub const Parser = struct {
 
         // TODO
         return null;
+    }
+
+    fn parseDirectiveDef(self: *Parser) !DirectiveDef {
+        _ = try self.iter.requireNextMeaningful(&.{.at});
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
+
+        const peeked = self.iter.peekNextMeaningful();
+        if (peeked == null) {
+            return Error.badParse;
+        }
+
+        var args: []Arg = &.{};
+        switch (peeked.?.kind) {
+            .lparen => {
+                _ = try self.iter.requireNextMeaningful(&.{.lparen});
+                args = try self.parseArgs();
+            },
+            .identifier => {},
+            else => return Error.badParse,
+        }
+
+        var repeatable = false;
+        const next = try self.iter.requireNextMeaningful(&.{.identifier});
+
+        switch (checkKeyword(next.value)) {
+            .repeatable => {
+                repeatable = true;
+
+                const _next = try self.iter.requireNextMeaningful(&.{.identifier});
+                if (!std.mem.eql(u8, _next.value, "on")) {
+                    return Error.badParse;
+                }
+            },
+            .on => {},
+            else => return Error.badParse,
+        }
+
+        const _next = try self.iter.requireNextMeaningful(&.{.identifier});
+        var locations: []DirectiveLocation = &.{};
+        if (std.mem.eql(u8, _next.value, "FIELD")) {
+            const ptr = try self.alloc.alloc(DirectiveLocation, 1);
+            ptr[0] = DirectiveLocation.field;
+            locations = ptr;
+        }
+
+        return .{
+            .name = name.value,
+            .args = args,
+            .repeatable = repeatable,
+            .locations = locations,
+        };
     }
 
     fn parseScalar(self: *Parser) !Scalar {

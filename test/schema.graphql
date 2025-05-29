@@ -9,8 +9,7 @@ schema {
 
 "The query"
 type Query {
-    # TODO This isn't implemented yet
-    # "field description"
+    "field description"
     foo: Bar
     nonNullFoo: Bar!
     listFoo: [Bar]
@@ -20,7 +19,7 @@ type Query {
 }
 
 type Mutation {
-    doFoo: Bar
+    doFoo: Bar @goober
 }
 
 type Subscription {
@@ -44,3 +43,5 @@ interface OtherFace {
 type FooFace implements Face & OtherFace {
     zar: Zaz
 }
+
+directive @goober on FIELD

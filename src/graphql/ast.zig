@@ -78,6 +78,31 @@ pub const Directive = struct {
 pub const DirectiveDef = struct {
     description: ?[]const u8 = null,
     name: []const u8,
+    args: []Arg = &.{},
+    repeatable: bool,
+    locations: []DirectiveLocation,
+};
+
+pub const DirectiveLocation = enum {
+    query,
+    mutation,
+    subscription,
+    field,
+    fragmentDefinition,
+    fragmentSpread,
+    inlineFragment,
+    variableDefinition,
+    schema,
+    scalar,
+    object,
+    fieldDefinition,
+    argumentDefinition,
+    interface,
+    union_,
+    enum_,
+    enumValue,
+    inputObject,
+    inputFieldDefinition,
 };
 
 pub const Arg = struct {
