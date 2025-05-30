@@ -52,11 +52,8 @@ fn gotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) Error!l
     };
 }
 
-fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
-    const self: *Handler = @ptrCast(@alignCast(_self));
-
+fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Locator.Locator } {
     // trim file:// if present
-    const furi = params.textDocument.uri;
     const fname =
         if (std.mem.eql(u8, furi[0..7], "file://"))
             furi[6..]
@@ -72,6 +69,14 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
     const doc = try _parser.parse();
 
     const locator = try Locator.Locator.init(doc, self.alloc);
+
+    return .{ doc, locator };
+}
+
+fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
+    const self: *Handler = @ptrCast(@alignCast(_self));
+
+    const doc, const locator = try self.getDocAndLocator(params.textDocument.uri);
 
     const item = locator.getItemAt(params.position.character, params.position.line);
 
