@@ -5,6 +5,7 @@ const Token = lexer.Token;
 const TokenKind = lexer.TokenKind;
 
 const ast = @import("ast.zig");
+const Argument = ast.Argument;
 const ArgumentDefinition = ast.ArgumentDefinition;
 const Directive = ast.Directive;
 const DirectiveDef = ast.DirectiveDef;
@@ -17,6 +18,7 @@ const Object = ast.Object;
 const Scalar = ast.Scalar;
 const Schema = ast.Schema;
 const TypeRef = ast.TypeRef;
+const Value = ast.Value;
 
 const Keyword = enum {
     unknown,
@@ -518,6 +520,44 @@ pub const Parser = struct {
         };
     }
 
+    fn _parseArgs(self: *Parser) ![]Argument {
+        var args = std.ArrayList(Argument).init(self.alloc);
+        while (true) {
+            const peeked = self.iter.peekNextMeaningful();
+            if (peeked == null) {
+                return Error.noneNext;
+            } else if (peeked.?.kind == TokenKind.rparen) {
+                _ = try self.iter.requireNextMeaningful(&.{.rparen});
+                break;
+            }
+
+            const next = try self._parseArg();
+            try args.append(next);
+        }
+        return try args.toOwnedSlice();
+    }
+
+    fn _parseArg(self: *Parser) !Argument {
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
+        _ = try self.iter.requireNextMeaningful(&.{.colon});
+        const val = try self.parseValue();
+
+        return .{
+            .name = name.value,
+            .value = val,
+        };
+    }
+
+    fn parseValue(self: *Parser) !Value {
+        const next = try self.iter.nextMeaningful();
+        switch (next.kind) {
+            .string => return .{
+                .String = next.value,
+            },
+            else => return Error.notImplemented,
+        }
+    }
+
     fn parseArgs(self: *Parser) ![]ArgumentDefinition {
         var args = std.ArrayList(ArgumentDefinition).init(self.alloc);
         while (true) {
@@ -579,10 +619,10 @@ pub const Parser = struct {
             return Error.badParse;
         }
 
-        var args: []ArgumentDefinition = &.{};
+        var args: []Argument = &.{};
         if (next.?.kind == .lparen) {
             _ = try self.iter.requireNextMeaningful(&.{.lparen});
-            args = try self.parseArgs();
+            args = try self._parseArgs();
         }
 
         return .{
@@ -733,6 +773,20 @@ const Iterator = struct {
 
     fn mustNext(self: *Iterator) !Token {
         return self.next() orelse Error.noneNext;
+    }
+
+    fn nextMeaningful(self: *Iterator) !Token {
+        while (true) {
+            const next_ = try self.mustNext();
+
+            switch (next_.kind) {
+                TokenKind.comma => _ = void,
+                TokenKind.comment => _ = void,
+                TokenKind.newline => _ = void,
+                TokenKind.whitespace => _ = void,
+                else => return next_,
+            }
+        }
     }
 
     fn requireNextMeaningful(self: *Iterator, kinds: []const TokenKind) !Token {

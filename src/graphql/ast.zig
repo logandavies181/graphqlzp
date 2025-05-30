@@ -72,7 +72,7 @@ pub const Interface = struct {
 
 pub const Directive = struct {
     name: []const u8,
-    args: ?[]ArgumentDefinition,
+    args: ?[]Argument,
 };
 
 pub const DirectiveDef = struct {
@@ -104,6 +104,22 @@ pub const DirectiveLocation = enum {
     enumValue,
     inputObject,
     inputFieldDefinition,
+};
+
+pub const Value = union(enum) {
+    String: []const u8,
+    // Int: u64,
+    // Float: f64,
+    // Null: null,
+    // TODO
+    // Enum: ,
+    // List: ,
+    // Object: ,
+};
+
+pub const Argument = struct {
+    name: []const u8,
+    value: Value,
 };
 
 pub const ArgumentDefinition = struct {
