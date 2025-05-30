@@ -362,10 +362,10 @@ pub const Parser = struct {
     }
 
     fn parseSchema(self: *Parser, offset: u64, lineNum: u64) !Schema {
-        var directives: ?[]Directive = null;
+        var directives: []Directive = &.{};
         const nextMeaningful = self.iter.peekNextMeaningful();
         if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
-            directives = self.parseDirectives();
+            directives = try self.parseDirectives();
         }
         _ = try self.iter.requireNextMeaningful(&.{.lbrack});
 
@@ -434,7 +434,7 @@ pub const Parser = struct {
 
         return .{
             .description = desc,
-            .directives = directives orelse &.{},
+            .directives = directives,
             .query = query.?,
             .mutation = mutation,
             .subscription = subscription,
@@ -455,16 +455,16 @@ pub const Parser = struct {
 
         const ty = try self.parseTypeRef();
 
-        var directives: ?[]Directive = null;
+        var directives: []Directive = &.{};
         const nextMeaningful = self.iter.peekNextMeaningful();
         if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
-            directives = self.parseDirectives();
+            directives = try self.parseDirectives();
         }
 
         return .{
             .args = args orelse &.{},
             .description = description,
-            .directives = directives orelse &.{},
+            .directives = directives,
             .name = name.value,
             .type = ty,
 
@@ -546,13 +546,49 @@ pub const Parser = struct {
         };
     }
 
-    fn parseDirectives(self: *Parser) ?[]Directive {
-        _ = self.iter.next();
-        _ = self.iter.next();
-        _ = self.iter.next();
+    // Assumes the caller has peeked for @ before calling.
+    fn parseDirectives(self: *Parser) ![]Directive {
+        var directives = std.ArrayList(Directive).init(self.alloc);
 
-        // TODO
-        return null;
+        while (true) {
+            const next = self.iter.peekNextMeaningful();
+            if (next == null) {
+                return Error.badParse;
+            }
+
+            switch (next.?.kind) {
+                .at => {
+                    try directives.append(try self.parseDirective());
+                },
+                .lparen => break,
+                .identifier => break,
+                .rbrack => break,
+                else => return Error.badParse,
+            }
+        }
+
+        return try directives.toOwnedSlice();
+    }
+
+    fn parseDirective(self: *Parser) !Directive {
+        _ = try self.iter.requireNextMeaningful(&.{.at});
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
+
+        const next = self.iter.peekNextMeaningful();
+        if (next == null) {
+            return Error.badParse;
+        }
+
+        var args: []Arg = &.{};
+        if (next.?.kind == .lparen) {
+            _ = try self.iter.requireNextMeaningful(&.{.lparen});
+            args = try self.parseArgs();
+        }
+
+        return .{
+            .name = name.value,
+            .args = args,
+        };
     }
 
     fn parseDirectiveDef(self: *Parser) !DirectiveDef {

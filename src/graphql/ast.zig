@@ -71,8 +71,8 @@ pub const Interface = struct {
 };
 
 pub const Directive = struct {
-    args: ?[]Arg,
     name: []const u8,
+    args: ?[]Arg,
 };
 
 pub const DirectiveDef = struct {
