@@ -6,4 +6,6 @@ type Query {
     foo: String
 }
 
+# Directive definitions don't really have a good indicator
+# for when they end.
 directive @goober on FIELD

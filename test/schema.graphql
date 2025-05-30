@@ -45,7 +45,10 @@ type FooFace implements Face & OtherFace {
 }
 
 directive @goober on FIELD
+  | OBJECT
 
-type Fuck {
+# The directive def needs to keep reading until the next definition because
+# there isn't actually anything telling it to stop.
+type Duck {
     zar: Zaz
 }
