@@ -1,15 +1,15 @@
 pub const Document = struct {
-    objects: []Object = &[_]Object{},
-    scalars: []Scalar = &[_]Scalar{},
-    interfaces: []Interface = &[_]Interface{},
+    objects: []Object = &.{},
+    scalars: []Scalar = &.{},
+    interfaces: []Interface = &.{},
     schema: Schema,
 
-    namedTypes: []NamedType = &[_]NamedType{},
+    namedTypes: []NamedType = &.{},
 };
 
 pub const Schema = struct {
     description: ?[]const u8 = null,
-    directives: []Directive = &[_]Directive{},
+    directives: []Directive = &.{},
 
     query: NamedType,
     mutation: ?NamedType,
@@ -39,9 +39,9 @@ pub const ListType = struct {
 
 pub const Object = struct {
     description: ?[]const u8 = null,
-    directives: []Directive = &[_]Directive{},
+    directives: []Directive = &.{},
     fields: []Field,
-    implements: []NamedType = &[_]NamedType{},
+    implements: []NamedType = &.{},
     nullable: bool = true,
     name: []const u8,
 
@@ -51,10 +51,10 @@ pub const Object = struct {
 
 pub const Field = struct {
     description: ?[]const u8 = null,
-    directives: []Directive = &[_]Directive{},
+    directives: []Directive = &.{},
     name: []const u8,
     type: TypeRef,
-    args: []Arg = &[_]Arg{},
+    args: []ArgumentDefinition = &.{},
 
     offset: u64,
     lineNum: u64,
@@ -72,13 +72,13 @@ pub const Interface = struct {
 
 pub const Directive = struct {
     name: []const u8,
-    args: ?[]Arg,
+    args: ?[]ArgumentDefinition,
 };
 
 pub const DirectiveDef = struct {
     description: ?[]const u8 = null,
     name: []const u8,
-    args: []Arg = &.{},
+    args: []ArgumentDefinition = &.{},
     repeatable: bool,
     locations: []DirectiveLocation,
 };
@@ -106,7 +106,7 @@ pub const DirectiveLocation = enum {
     inputFieldDefinition,
 };
 
-pub const Arg = struct {
+pub const ArgumentDefinition = struct {
     description: ?[]const u8 = null,
     name: []const u8,
     ty: TypeRef,
@@ -115,7 +115,7 @@ pub const Arg = struct {
 pub const Scalar = struct {
     description: ?[]const u8 = null,
     name: []const u8,
-    directives: []Directive = &[_]Directive{},
+    directives: []Directive = &.{},
 
     offset: u64,
     lineNum: u64,

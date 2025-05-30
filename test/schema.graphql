@@ -10,7 +10,7 @@ schema {
 "The query"
 type Query {
     "field description"
-    foo: Bar
+    foo: Bar @specifiedBy(url: "https://example.com/foo")
     nonNullFoo: Bar!
     listFoo: [Bar]
     listNonNullFoo: [Bar!]

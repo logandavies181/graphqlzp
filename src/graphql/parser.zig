@@ -5,7 +5,7 @@ const Token = lexer.Token;
 const TokenKind = lexer.TokenKind;
 
 const ast = @import("ast.zig");
-const Arg = ast.Arg;
+const ArgumentDefinition = ast.ArgumentDefinition;
 const Directive = ast.Directive;
 const DirectiveDef = ast.DirectiveDef;
 const DirectiveLocation = ast.DirectiveLocation;
@@ -445,7 +445,7 @@ pub const Parser = struct {
     }
 
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {
-        var args: ?[]Arg = null;
+        var args: ?[]ArgumentDefinition = null;
         const colOrParen = try self.iter.requireNextMeaningful(&.{ .colon, .lparen });
 
         if (colOrParen.kind == TokenKind.lparen) {
@@ -518,8 +518,8 @@ pub const Parser = struct {
         };
     }
 
-    fn parseArgs(self: *Parser) ![]Arg {
-        var args = std.ArrayList(Arg).init(self.alloc);
+    fn parseArgs(self: *Parser) ![]ArgumentDefinition {
+        var args = std.ArrayList(ArgumentDefinition).init(self.alloc);
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
             if (peeked == null) {
@@ -535,7 +535,7 @@ pub const Parser = struct {
         return try args.toOwnedSlice();
     }
 
-    fn parseArg(self: *Parser) !Arg {
+    fn parseArg(self: *Parser) !ArgumentDefinition {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
         _ = try self.iter.requireNextMeaningful(&.{.colon});
         const ty = try self.parseTypeRef();
@@ -579,7 +579,7 @@ pub const Parser = struct {
             return Error.badParse;
         }
 
-        var args: []Arg = &.{};
+        var args: []ArgumentDefinition = &.{};
         if (next.?.kind == .lparen) {
             _ = try self.iter.requireNextMeaningful(&.{.lparen});
             args = try self.parseArgs();
@@ -600,7 +600,7 @@ pub const Parser = struct {
             return Error.badParse;
         }
 
-        var args: []Arg = &.{};
+        var args: []ArgumentDefinition = &.{};
         switch (peeked.?.kind) {
             .lparen => {
                 _ = try self.iter.requireNextMeaningful(&.{.lparen});
