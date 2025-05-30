@@ -91,43 +91,40 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
                 .character = @intCast(obj.offset),
             };
         },
-        .namedType => |nt| blk: {
-            const memeql = std.mem.eql;
-            for (doc.objects) |obj| {
-                if (memeql(u8, obj.name, nt.name)) {
+        .namedType => |nt| {
+            const ty = Locator.getTypeDefFromNamedType(doc, nt);
+            if (ty == null) {
+                return null;
+            }
+
+            switch (ty.?) {
+                .object => |obj| {
                     len = obj.name.len;
                     pos = .{
                         .line = @intCast(obj.lineNum),
                         .character = @intCast(obj.offset),
                     };
-                    break :blk;
-                }
-            }
-            for (doc.interfaces) |ifce| {
-                if (memeql(u8, ifce.name, nt.name)) {
+                },
+                .interface => |ifce| {
                     len = ifce.name.len;
                     pos = .{
                         .line = @intCast(ifce.lineNum),
                         .character = @intCast(ifce.offset),
                     };
-                    break :blk;
-                }
-            }
-            for (doc.scalars) |scl| {
-                if (memeql(u8, scl.name, nt.name)) {
+                },
+                .scalar => |scl| {
                     len = scl.name.len;
                     pos = .{
                         .line = @intCast(scl.lineNum),
                         .character = @intCast(scl.offset),
                     };
-                    break :blk;
-                }
+                },
+                // TODO: other types
+
+                else => return null,
             }
-            return null;
         },
-        else => {
-            return null;
-        },
+        else => return null,
     }
 
     return .{

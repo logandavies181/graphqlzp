@@ -19,6 +19,32 @@ pub const location = struct {
     lineNum: u64,
 };
 
+pub fn getTypeDefFromNamedType(doc: ast.Document, nt: ast.NamedType) ?AstItem {
+    const memeql = std.mem.eql;
+    for (doc.objects) |obj| {
+        if (memeql(u8, obj.name, nt.name)) {
+            return .{
+                .object = obj
+            };
+        }
+    }
+    for (doc.interfaces) |ifce| {
+        if (memeql(u8, ifce.name, nt.name)) {
+            return .{
+                .interface = ifce
+            };
+        }
+    }
+    for (doc.scalars) |scl| {
+        if (memeql(u8, scl.name, nt.name)) {
+            return .{
+                .scalar = scl,
+            };
+        }
+    }
+    return null;
+}
+
 pub fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
     return switch (tr) {
         .namedType => |nt| {
