@@ -7,10 +7,10 @@ schema {
 # Some comment. Btw, commas are fully ignored
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-"The query"
+"The q\"uery"
 type Query {
     "field description"
-    foo: Bar @specifiedBy(url: "https://example.com/foo")
+    foo: Bar
     nonNullFoo: Bar!
     listFoo: [Bar]
     listNonNullFoo: [Bar!]
@@ -34,7 +34,7 @@ type InBar {
     zar: Zaz
 }
 
-scalar Zaz
+scalar Zaz @specifiedBy(url: "https://example.com/foo")
 
 interface Face {
     zar: Zaz

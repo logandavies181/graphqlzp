@@ -58,6 +58,7 @@ pub const Parser = struct {
         var scalars = std.ArrayList(Scalar).init(self.alloc);
         var schema: ?Schema = null;
 
+        var desc: ?[]const u8 = null;
         while (true) {
             const _next = self.iter.next();
             if (_next == null) {
@@ -65,7 +66,6 @@ pub const Parser = struct {
             }
             const next = _next.?;
 
-            var desc: ?[]const u8 = null;
             switch (next.kind) {
                 TokenKind.identifier => {
                     switch (checkKeyword(next.value)) {

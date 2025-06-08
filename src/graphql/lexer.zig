@@ -34,6 +34,8 @@ pub const Error = error{
     unknownToken,
     internalWrongNumBytes,
     internalNullNBytes,
+    unexpectedEof,
+    unterminatedString,
 };
 
 pub const LexResult = struct {
@@ -209,47 +211,57 @@ const Tokenizer = struct {
         } else if (memeql(u8, next3[0..2], "\"\"")) {
             return try self.nextNBytesAs(.string, 2);
         } else if (memeql(u8, next3[0..1], "\"")) {
-            return self.readString();
+            return try self.readString();
         } else {
             return Error.unknownToken;
         }
     }
 
-    fn readString(self: *Tokenizer) Token {
-        return self.readWhile(.string, _readStringWhileFunc());
-    }
+    fn readString(self: *Tokenizer) !Token {
+        const startPos = self.pos + 1;
+        const offset = self.currentOffset;
 
-    fn _readStringWhileFunc() fn ([]const u8) bool {
-        // at the very least this isn't threadsafe
-        return struct {
-            var numDquote: u8 = 0;
-            fn func(cp: []const u8) bool {
-                if (numDquote > 1) {
-                    // _readStringWhileFunc seems to return the same anonymous struct instance
-                    // each time, so we need to reset the var when done.
-                    numDquote = 0;
-                    return false;
-                }
-                if (eq(cp, '"')) {
-                    numDquote += 1;
-                }
-                return true;
+        // Assume the caller peeked. There's no chance we use this,
+        // so it's safe to be the first prev.
+        var prev = try self.mustReadChar();
+        var len: u64 = 1;
+        while (true) {
+            const next = try self.mustReadChar();
+            if (isNewLine(next)) {
+                return Error.unterminatedString;
             }
-        }.func;
+
+            len += next.len;
+
+            // TODO: this doesn't actually handle the escape sequence
+            // past not terminating the string.
+            if (eq(next, '"') and !eq(prev, '\\')) {
+                break;
+            }
+
+            prev = next;
+        }
+
+        self.pos += len;
+        const val = self.buf[startPos..self.pos-1];
+
+        return .{
+            .kind = .string,
+            .value = val,
+            .lineNum = self.lineNum,
+            .offset = offset,
+        };
     }
 
-    fn readBlock(self: *Tokenizer) Token {
+    fn readBlock(self: *Tokenizer) !Token {
         const startPos = self.pos;
         const offset = self.currentOffset;
         self.discardNChars(3);
 
-        var len: u64 = 6;
+        var len: u64 = 6; // TODO: 6??
         while (!std.mem.eql(u8, self.iter.peek(3), "\"\"\"")) {
-            const next = self.readChar();
-            if (next == null) {
-                break;
-            }
-            len += next.?.len;
+            const next = try self.mustReadChar();
+            len += next.len;
         }
         self.discardNChars(3);
 
@@ -290,6 +302,10 @@ const Tokenizer = struct {
     fn readChar(self: *Tokenizer) ?[]const u8 {
         self.currentOffset += 1;
         return self.iter.nextCodepointSlice();
+    }
+
+    inline fn mustReadChar(self: *Tokenizer) ![]const u8 {
+        return self.readChar() orelse Error.unexpectedEof;
     }
 
     fn nextCharAs(self: *Tokenizer, kind: TokenKind) Token {
