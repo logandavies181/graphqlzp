@@ -15,7 +15,7 @@ type Query {
     listFoo: [Bar]
     listNonNullFoo: [Bar!]
     nonNullListNonNullFoo: [Bar!]!
-    fooWithArgs(in: Bar): Bar
+    fooWithArgs(in: InBar): Bar
 }
 
 type Mutation {
@@ -27,6 +27,10 @@ type Subscription {
 }
 
 type Bar {
+    zar: Zaz
+}
+
+type InBar {
     zar: Zaz
 }
 
@@ -44,7 +48,7 @@ type FooFace implements Face & OtherFace {
     zar: Zaz
 }
 
-directive @goober on FIELD
+directive @goober on FIELD_DEFINITION
   | OBJECT
 
 # The directive def needs to keep reading until the next definition because

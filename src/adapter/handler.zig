@@ -33,14 +33,65 @@ pub fn handler(self: *Handler) _handler {
     };
 }
 
-fn hover(_: *anyopaque, _: lsp.types.HoverParams) Error!?lsp.types.Hover {
+fn keywordFromType(item: Locator.AstItem) []const u8 {
+    return switch (item) {
+        .schema => "schema",
+        .scalar => "scalar",
+        .object => "type",
+        .namedType => unreachable,
+        .interface => "interface",
+    };
+}
+
+fn nameOf(item: Locator.AstItem) []const u8 {
+    return switch (item) {
+        .schema => "schema",
+        .scalar => |_item| _item.name,
+        .object => |_item| _item.name,
+        .namedType => unreachable,
+        .interface => |_item| _item.name,
+    };
+}
+
+fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
+    return switch (item) {
+        .schema => |_item| _item.description,
+        .scalar => |_item| _item.description,
+        .object => |_item| _item.description,
+        .namedType => unreachable,
+        .interface => |_item| _item.description,
+    };
+}
+
+fn hover(_self: *anyopaque, params: lsp.types.HoverParams) Error!?lsp.types.Hover {
+    return tryHover(_self, params) catch |err| {
+        std.debug.print("got error: {any}", .{err});
+        return Error.InternalError;
+    };
+}
+
+fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover {
+    const self: *Handler = @ptrCast(@alignCast(_self));
+
+    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
+
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found\n", .{}); // TODO
+        return null;
+    }
+
+    const def = locator.getItemDefinition(item.?);
+    if (def == null) {
+        return null;
+    }
+
+    // TODO: mem mgmt
+    const content = try std.fmt.allocPrint(self.alloc, "```graphql\n{s} {s}\n```\n{s}", .{keywordFromType(def.?), nameOf(def.?), descriptionOf(def.?) orelse ""});
+
     return .{
         .contents = .{
-            .MarkupContent = .{ .kind = .markdown, .value =
-            \\```
-            \\zar!
-            \\```
-        },
+            .MarkupContent = .{ .kind = .markdown, .value = content },
         },
     };
 }
@@ -76,61 +127,20 @@ fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Lo
 fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
     const self: *Handler = @ptrCast(@alignCast(_self));
 
-    const doc, const locator = try self.getDocAndLocator(params.textDocument.uri);
+    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
 
     const item = locator.getItemAt(params.position.character, params.position.line);
-
     if (item == null) {
         std.debug.print("nothing found\n", .{}); // TODO
         return null;
     }
 
-    var pos: lsp.types.Position = undefined;
-    var len: u64 = undefined;
-
-    switch (item.?) {
-        .object => |obj| {
-            len = obj.name.len;
-            pos = .{
-                .line = @intCast(obj.lineNum),
-                .character = @intCast(obj.offset),
-            };
-        },
-        .namedType => |nt| {
-            const ty = Locator.getTypeDefFromNamedType(doc, nt);
-            if (ty == null) {
-                return null;
-            }
-
-            switch (ty.?) {
-                .object => |obj| {
-                    len = obj.name.len;
-                    pos = .{
-                        .line = @intCast(obj.lineNum),
-                        .character = @intCast(obj.offset),
-                    };
-                },
-                .interface => |ifce| {
-                    len = ifce.name.len;
-                    pos = .{
-                        .line = @intCast(ifce.lineNum),
-                        .character = @intCast(ifce.offset),
-                    };
-                },
-                .scalar => |scl| {
-                    len = scl.name.len;
-                    pos = .{
-                        .line = @intCast(scl.lineNum),
-                        .character = @intCast(scl.offset),
-                    };
-                },
-                // TODO: other types
-
-                else => return null,
-            }
-        },
-        else => return null,
+    const def = locator.getItemDefinition(item.?);
+    if (def == null) {
+        return null;
     }
+
+    const len, const pos = Locator.getItemLenAndPos(def.?);
 
     return .{
         .Definition = .{

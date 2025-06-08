@@ -2,6 +2,8 @@ const std = @import("std");
 
 const ast = @import("../graphql/ast.zig");
 
+const lsp = @import("lsp");
+
 pub const AstItem = union(enum) {
     schema: ast.Schema,
     scalar: ast.Scalar,
@@ -18,6 +20,34 @@ pub const location = struct {
     offset: u64,
     lineNum: u64,
 };
+
+fn _getItemLenAndPos(item: anytype) struct { u64, lsp.types.Position } {
+    return .{
+        item.name.len,
+        .{
+            .line = @intCast(item.lineNum),
+            .character = @intCast(item.offset),
+        },
+    };
+}
+
+pub fn getItemLenAndPos(item: AstItem) struct { u64, lsp.types.Position } {
+    return switch (item) {
+        .scalar => |_item| _getItemLenAndPos(_item),
+        .namedType => |_item| _getItemLenAndPos(_item),
+        .object => |_item| _getItemLenAndPos(_item),
+        .interface => |_item| _getItemLenAndPos(_item),
+        .schema => |sch| {
+            return .{
+                6,
+                .{
+                    .line = @intCast(sch.lineNum orelse 0),
+                    .character = @intCast(sch.offset orelse 0),
+                },
+            };
+        },
+    };
+}
 
 pub fn getTypeDefFromNamedType(doc: ast.Document, nt: ast.NamedType) ?AstItem {
     const memeql = std.mem.eql;
@@ -87,6 +117,7 @@ fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !v
 
 pub const Locator = struct {
     locations: []location,
+    doc: ast.Document,
 
     pub fn init(doc: ast.Document, alloc: std.mem.Allocator) !Locator {
         var locations = std.ArrayList(location).init(alloc);
@@ -115,6 +146,7 @@ pub const Locator = struct {
 
         return .{
             .locations = try locations.toOwnedSlice(),
+            .doc = doc,
         };
     }
 
@@ -125,6 +157,51 @@ pub const Locator = struct {
             }
         }
         return null;
+    }
+
+    pub fn getItemDefinition(self: Locator, item: AstItem) ?AstItem {
+        switch (item) {
+            .object => |obj| {
+                return .{
+                    .object = obj,
+                };
+            },
+            .namedType => |nt| {
+                const ty = getTypeDefFromNamedType(self.doc, nt);
+                if (ty == null) {
+                    return null;
+                }
+
+                switch (ty.?) {
+                    .object => |obj| {
+                        return .{
+                            .object = obj,
+                        };
+                    },
+                    .interface => |ifce| {
+                        return .{
+                            .interface = ifce,
+                        };
+                    },
+                    .scalar => |scl| {
+                        return .{
+                            .scalar = scl,
+                        };
+                    },
+
+                    // TODO: other types
+
+                    else => {
+                        std.debug.print("warn: getItemDefinition.namedType not implemented arm", .{});
+                        return null;
+                    },
+                }
+            },
+            else => {
+                std.debug.print("warn: getItemDefinition not implemented arm", .{});
+                return null;
+            },
+        }
     }
 
     fn overlaps(loc: location, offset: u64, lineNum: u64) bool {
