@@ -12,6 +12,8 @@ const DirectiveDef = ast.DirectiveDef;
 const DirectiveLocation = ast.DirectiveLocation;
 const Document = ast.Document;
 const Field = ast.Field;
+const Input = ast.Input;
+const InputField = ast.InputField;
 const Interface = ast.Interface;
 const NamedType = ast.NamedType;
 const Object = ast.Object;
@@ -24,6 +26,7 @@ const Keyword = enum {
     unknown,
     directive,
     implements,
+    input,
     interface,
     on,
     repeatable,
@@ -53,6 +56,7 @@ pub const Parser = struct {
 
     fn tryParse(self: *Parser) !Document {
         var directiveDefs = std.ArrayList(DirectiveDef).init(self.alloc);
+        var inputs = std.ArrayList(Input).init(self.alloc);
         var interfaces = std.ArrayList(Interface).init(self.alloc);
         var objects = std.ArrayList(Object).init(self.alloc);
         var scalars = std.ArrayList(Scalar).init(self.alloc);
@@ -74,6 +78,12 @@ pub const Parser = struct {
                             item.description = desc;
                             desc = null;
                             try directiveDefs.append(item);
+                        },
+                        .input => {
+                            var item = try self.parseInput();
+                            item.description = desc;
+                            desc = null;
+                            try inputs.append(item);
                         },
                         .interface => {
                             var item = try self.parseInterface();
@@ -190,6 +200,8 @@ pub const Parser = struct {
             .directive
         else if (memeql(u8, id, "implements"))
             .implements
+        else if (memeql(u8, id, "input"))
+            .input
         else if (memeql(u8, id, "interface"))
             .interface
         else if (memeql(u8, id, "on"))
@@ -270,6 +282,7 @@ pub const Parser = struct {
     fn parse_struct(self: *Parser, ty: type) !ty {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
+        // TODO: it seems interfaces can implement interfaces.
         var implements = std.ArrayList(NamedType).init(self.alloc);
         if (ty == Object) blk: {
             const _next = self.iter.peekNextMeaningful();
@@ -348,7 +361,6 @@ pub const Parser = struct {
         }
 
         var ret: ty = .{
-            .description = null, // TODO
             .name = name.value,
             .fields = try fields.toOwnedSlice(),
 
@@ -361,6 +373,81 @@ pub const Parser = struct {
         }
 
         return ret;
+    }
+
+    fn parseInput(self: *Parser) !Input {
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
+
+        const next = try self.iter.nextMeaningful();
+        var directives: []Directive = &.{};
+        switch (next.kind) {
+            .at => {
+                directives = try self.parseDirectives();
+            },
+            .identifier => {
+                return .{
+                    .name = name.value,
+
+                    .offset = name.offset,
+                    .lineNum = name.lineNum,
+                };
+            },
+            .lbrack => {}, // continue
+            else => {
+                return Error.badParse;
+            },
+        }
+
+        var fields = std.ArrayList(InputField).init(self.alloc);
+        var desc: ?[]const u8 = null;
+        while (true) {
+            const _next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
+            switch (_next.kind) {
+                TokenKind.rbrack => break,
+                TokenKind.string => {
+                    if (desc == null) {
+                        desc = _next.value;
+                    } else {
+                        return Error.badParse;
+                    }
+                },
+                TokenKind.identifier => {
+                    const fld = try self.parseInputFieldDef(_next);
+                    try fields.append(fld);
+                },
+                else => return Error.badParse,
+            }
+        }
+
+        return .{
+            .name = name.value,
+            .inputFields = try fields.toOwnedSlice(),
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
+        };
+    }
+
+    fn parseInputFieldDef(self: *Parser, name: Token) !InputField {
+        _ = try self.iter.requireNextMeaningful(&.{.colon});
+
+        const ty = try self.parseTypeRef();
+
+        var directives: []Directive = &.{};
+        const nextMeaningful = self.iter.peekNextMeaningful();
+        if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
+            directives = try self.parseDirectives();
+        }
+
+        return .{
+            .directives = directives,
+            .name = name.value,
+            .type = ty,
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
+        };
+
     }
 
     fn parseSchema(self: *Parser, offset: u64, lineNum: u64) !Schema {

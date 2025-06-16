@@ -42,7 +42,6 @@ pub const Object = struct {
     directives: []Directive = &.{},
     fields: []Field,
     implements: []NamedType = &.{},
-    nullable: bool = true,
     name: []const u8,
 
     offset: u64,
@@ -60,10 +59,28 @@ pub const Field = struct {
     lineNum: u64,
 };
 
+pub const Input = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+    inputFields: []InputField = &.{},
+
+    offset: u64,
+    lineNum: u64,
+};
+
+pub const InputField = struct {
+    description: ?[]const u8 = null,
+    directives: []Directive = &.{},
+    name: []const u8,
+    type: TypeRef,
+
+    offset: u64,
+    lineNum: u64,
+};
+
 pub const Interface = struct {
     description: ?[]const u8 = null,
     name: []const u8,
-    nullable: bool = true,
     fields: []Field,
 
     offset: u64,

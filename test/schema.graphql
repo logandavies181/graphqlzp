@@ -30,7 +30,7 @@ type Bar {
     zar: Zaz
 }
 
-type InBar {
+input InBar {
     zar: Zaz
 }
 
