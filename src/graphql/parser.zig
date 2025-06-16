@@ -171,7 +171,7 @@ pub const Parser = struct {
     pub fn parse(self: *Parser) !Document {
         return self.tryParse() catch |err|
             switch (err) {
-                Error.badParse => blk: {
+                Error.badParse, Error.todo => blk: {
                     _ = self.iter.next();
                     const curr = self.iter.current();
                     std.debug.print("\nBad parse at line: {d}, offset: {d}. Found: {s}\n", .{ curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
@@ -614,6 +614,8 @@ pub const Parser = struct {
         _ = try self.iter.requireNextMeaningful(&.{.at});
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
+        std.debug.print("{s}\n", .{name.value});
+
         const next = self.iter.peekNextMeaningful();
         if (next == null) {
             return Error.badParse;
@@ -715,10 +717,15 @@ pub const Parser = struct {
     fn parseScalar(self: *Parser) !Scalar {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        // TODO: directives
+        const next = self.iter.peekNextMeaningful();
+        var directives: []Directive = &.{};
+        if (next != null and next.?.kind == TokenKind.at) {
+            directives = try self.parseDirectives();
+        }
 
         return .{
             .name = name.value,
+            .directives = directives,
 
             .offset = name.offset,
             .lineNum = name.lineNum,
