@@ -33,13 +33,14 @@ pub fn handler(self: *Handler) _handler {
     };
 }
 
-fn keywordFromType(item: Locator.AstItem) []const u8 {
+fn keywordFromType(item: Locator.AstItem) ?[]const u8 {
     return switch (item) {
         .schema => "schema",
         .scalar => "scalar",
         .object => "type",
         .namedType => unreachable,
         .interface => "interface",
+        .fieldDefinition => null,
     };
 }
 
@@ -50,6 +51,7 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .object => |_item| _item.name,
         .namedType => unreachable,
         .interface => |_item| _item.name,
+        .fieldDefinition => |_item| _item.name,
     };
 }
 
@@ -60,6 +62,7 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
         .object => |_item| _item.description,
         .namedType => unreachable,
         .interface => |_item| _item.description,
+        .fieldDefinition => |_item| _item.name,
     };
 }
 
@@ -87,7 +90,24 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
     }
 
     // TODO: mem mgmt
-    const content = try std.fmt.allocPrint(self.alloc, "```graphql\n{s} {s}\n```\n{s}", .{keywordFromType(def.?), nameOf(def.?), descriptionOf(def.?) orelse ""});
+    var content: []u8 = undefined;
+    defer self.alloc.free(content);
+    const keyword = keywordFromType(def.?);
+    if (keyword != null) {
+        content = try std.fmt.allocPrint(
+            self.alloc,
+            "```graphql\n{s} {s}\n```\n{s}",
+            .{keyword.?, nameOf(def.?), descriptionOf(def.?) orelse ""});
+    } else {
+        // assume it's a field
+        const fld = def.?.fieldDefinition;
+        content = try std.fmt.allocPrint(
+            self.alloc,
+            "```graphql\n{s}: {s}\n```\n{s}",
+            .{fld.name, "todo", descriptionOf(def.?) orelse ""});
+    }
+
+    std.debug.print("{s}\n", .{content});
 
     return .{
         .contents = .{
@@ -103,7 +123,7 @@ fn gotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) Error!l
     };
 }
 
-fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Locator.Locator } {
+pub fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Locator.Locator } {
     // trim file:// if present
     const fname =
         if (std.mem.eql(u8, furi[0..7], "file://"))

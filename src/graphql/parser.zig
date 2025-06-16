@@ -701,8 +701,6 @@ pub const Parser = struct {
         _ = try self.iter.requireNextMeaningful(&.{.at});
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        std.debug.print("{s}\n", .{name.value});
-
         const next = self.iter.peekNextMeaningful();
         if (next == null) {
             return Error.badParse;

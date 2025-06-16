@@ -10,6 +10,7 @@ pub const AstItem = union(enum) {
     namedType: ast.NamedType,
     object: ast.Object,
     interface: ast.Interface,
+    fieldDefinition: ast.Field,
 
     // TODO etc
 };
@@ -37,6 +38,7 @@ pub fn getItemLenAndPos(item: AstItem) struct { u64, lsp.types.Position } {
         .namedType => |_item| _getItemLenAndPos(_item),
         .object => |_item| _getItemLenAndPos(_item),
         .interface => |_item| _getItemLenAndPos(_item),
+        .fieldDefinition => |_item| _getItemLenAndPos(_item),
         .schema => |sch| {
             return .{
                 6,
@@ -101,6 +103,12 @@ fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !v
     }
 
     for (obj.fields) |fld| {
+        try locations.append(.{
+            .item = .{
+                .fieldDefinition = fld,
+            }, .len = fld.name.len, .offset = fld.offset, .lineNum = fld.lineNum,
+        });
+
         const nt = getNamedTypeFromTypeRef(fld.type);
         try locations.append(.{ .item = .{
             .namedType = nt,
@@ -196,6 +204,11 @@ pub const Locator = struct {
                         return null;
                     },
                 }
+            },
+            .fieldDefinition => |fd| {
+                return .{
+                    .fieldDefinition = fd,
+                };
             },
             else => {
                 std.debug.print("warn: getItemDefinition not implemented arm", .{});
