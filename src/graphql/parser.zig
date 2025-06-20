@@ -11,6 +11,7 @@ const Directive = ast.Directive;
 const DirectiveDef = ast.DirectiveDef;
 const DirectiveLocation = ast.DirectiveLocation;
 const Document = ast.Document;
+const Enum = ast.Enum;
 const Field = ast.Field;
 const Input = ast.Input;
 const InputField = ast.InputField;
@@ -20,11 +21,13 @@ const Object = ast.Object;
 const Scalar = ast.Scalar;
 const Schema = ast.Schema;
 const TypeRef = ast.TypeRef;
+const Union = ast.Union;
 const Value = ast.Value;
 
 const Keyword = enum {
     unknown,
     directive,
+    enum_,
     implements,
     input,
     interface,
@@ -33,6 +36,7 @@ const Keyword = enum {
     scalar,
     schema,
     type,
+    union_,
 };
 
 const Error = error{
@@ -56,6 +60,7 @@ pub const Parser = struct {
 
     fn tryParse(self: *Parser) !Document {
         var directiveDefs = std.ArrayList(DirectiveDef).init(self.alloc);
+        var enums = std.ArrayList(DirectiveDef).init(self.alloc);
         var inputs = std.ArrayList(Input).init(self.alloc);
         var interfaces = std.ArrayList(Interface).init(self.alloc);
         var objects = std.ArrayList(Object).init(self.alloc);
@@ -78,6 +83,9 @@ pub const Parser = struct {
                             item.description = desc;
                             desc = null;
                             try directiveDefs.append(item);
+                        },
+                        .enum_ => {
+                            return Error.todo;
                         },
                         .input => {
                             var item = try self.parseInput();
@@ -111,6 +119,9 @@ pub const Parser = struct {
                             item.description = desc;
                             desc = null;
                             try objects.append(item);
+                        },
+                        .union_ => {
+                            return Error.todo;
                         },
                         else => return Error.badParse,
                     }
@@ -198,6 +209,8 @@ pub const Parser = struct {
         const memeql = std.mem.eql;
         return if (memeql(u8, id, "directive"))
             .directive
+        else if (memeql(u8, id, "enum"))
+            .enum_
         else if (memeql(u8, id, "implements"))
             .implements
         else if (memeql(u8, id, "input"))
@@ -214,6 +227,8 @@ pub const Parser = struct {
             .schema
         else if (memeql(u8, id, "type"))
             .type
+        else if (memeql(u8, id, "union"))
+            .union_
         else
             .unknown;
     }

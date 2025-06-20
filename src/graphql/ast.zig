@@ -92,6 +92,21 @@ pub const Directive = struct {
     args: ?[]Argument,
 };
 
+pub const Enum = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+
+    directives: []Directive = &.{},
+    values: []EnumValue = &.{},
+};
+
+pub const EnumValue = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+
+    directives: []Directive = &.{},
+};
+
 pub const DirectiveDef = struct {
     description: ?[]const u8 = null,
     name: []const u8,
@@ -152,4 +167,12 @@ pub const Scalar = struct {
 
     offset: u64,
     lineNum: u64,
+};
+
+pub const Union = struct {
+    description: ?[]const u8 = null,
+    name: []const u8,
+    directives: []Directive = &.{},
+
+    types: []NamedType = &.{},
 };
