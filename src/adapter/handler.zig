@@ -113,7 +113,7 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
         };
         try content.appendSlice(try allocprint(
             self.alloc,
-            "```graphql\n{s} {s} {{\n  ,,,\n  {s}: {s}\n  ,,,\n}}\n```",
+            "```graphql\n{s} {s} {{\n  ,,,\n  {s}: {s}\n\n}}\n```",
             .{parentKw, fld.parent.name, fld.field.name, try formatTypeRef(self.alloc, fld.field.type)}));
     }
 

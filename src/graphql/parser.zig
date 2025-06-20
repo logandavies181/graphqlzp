@@ -354,6 +354,7 @@ pub const Parser = struct {
                 },
                 TokenKind.identifier => {
                     const fld = try self.parseFieldDef(next, desc);
+                    desc = null;
                     try fields.append(fld);
                 },
                 else => return Error.badParse,
