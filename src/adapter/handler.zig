@@ -100,10 +100,7 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
     }
     const keyword = keywordFromType(def);
     if (keyword != null) {
-        try content.appendSlice(try allocprint(
-            self.alloc,
-            "```graphql\n{s} {s}\n```",
-            .{keyword.?, nameOf(def)}));
+        try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, nameOf(def) }));
     } else {
         // assume it's a field
         const fld = def.fieldDefinition;
@@ -111,10 +108,8 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
             .object => "type",
             .interface => "interface",
         };
-        try content.appendSlice(try allocprint(
-            self.alloc,
-            "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```",
-            .{parentKw, fld.parent.name, fld.field.name, try formatArgDefs(self.alloc, fld.field.args), try formatTypeRef(self.alloc, fld.field.type)}));
+        try content
+            .appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try formatArgDefs(self.alloc, fld.field.args), try formatTypeRef(self.alloc, fld.field.type) }));
     }
 
     return .{
@@ -133,7 +128,12 @@ fn formatArgDefs(alloc: std.mem.Allocator, args: []ast.ArgumentDefinition) ![]co
     try content.append('(');
 
     for (args, 0..args.len) |arg, i| {
-        try content.appendSlice(try std.fmt.allocPrint(alloc, "{s}: {s}", .{arg.name, try formatTypeRef(alloc, arg.ty)}));
+        try content
+            .appendSlice(try std.fmt.allocPrint(
+            alloc,
+            "{s}: {s}",
+            .{ arg.name, try formatTypeRef(alloc, arg.ty) },
+        ));
         if (i < args.len - 1) {
             try content.appendSlice(", ");
         } else {
@@ -149,7 +149,7 @@ fn formatTypeRef(alloc: std.mem.Allocator, tr: ast.TypeRef) ![]const u8 {
         .namedType => |nt| if (nt.nullable) nt.name else try std.fmt.allocPrint(alloc, "{s}!", .{nt.name}),
         .listType => |lt| {
             const childContent = try formatTypeRef(alloc, lt.ty.*);
-            return try std.fmt.allocPrint(alloc, "[{s}]{s}", .{childContent, if (lt.nullable) "" else "!"});
+            return try std.fmt.allocPrint(alloc, "[{s}]{s}", .{ childContent, if (lt.nullable) "" else "!" });
         },
     };
 }

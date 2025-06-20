@@ -448,7 +448,6 @@ pub const Parser = struct {
             .offset = name.offset,
             .lineNum = name.lineNum,
         };
-
     }
 
     fn parseSchema(self: *Parser, offset: u64, lineNum: u64) !Schema {
@@ -757,7 +756,7 @@ pub const Parser = struct {
         var locations = std.ArrayList(DirectiveLocation).init(self.alloc);
         var lastWasBar = true;
         while (true) {
-            const _next = self.iter.requireNextMeaningful(&.{.identifier, .bar}) catch |err| {
+            const _next = self.iter.requireNextMeaningful(&.{ .identifier, .bar }) catch |err| {
                 if (err == Error.noneNext) {
                     break;
                 } else {

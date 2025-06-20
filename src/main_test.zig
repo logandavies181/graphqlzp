@@ -41,7 +41,6 @@ fn testmain() !void {
             }
         }
     }
-
 }
 
 test "test main" {

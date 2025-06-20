@@ -68,16 +68,12 @@ pub fn getTypeDefFromNamedType(doc: ast.Document, nt: ast.NamedType) ?AstItem {
     const memeql = std.mem.eql;
     for (doc.objects) |obj| {
         if (memeql(u8, obj.name, nt.name)) {
-            return .{
-                .object = obj
-            };
+            return .{ .object = obj };
         }
     }
     for (doc.interfaces) |ifce| {
         if (memeql(u8, ifce.name, nt.name)) {
-            return .{
-                .interface = ifce
-            };
+            return .{ .interface = ifce };
         }
     }
     for (doc.scalars) |scl| {
@@ -106,7 +102,6 @@ fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !v
         .object = obj,
     }, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
 
-
     for (obj.implements) |impl| {
         try locations.append(.{ .item = .{
             .namedType = impl,
@@ -123,7 +118,10 @@ fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !v
                         .name = obj.name,
                     },
                 },
-            }, .len = fld.name.len, .offset = fld.offset, .lineNum = fld.lineNum,
+            },
+            .len = fld.name.len,
+            .offset = fld.offset,
+            .lineNum = fld.lineNum,
         });
 
         const nt = getNamedTypeFromTypeRef(fld.type);
