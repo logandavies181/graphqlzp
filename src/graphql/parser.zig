@@ -67,7 +67,7 @@ pub const Parser = struct {
         var objects = std.ArrayList(Object).init(self.alloc);
         var scalars = std.ArrayList(Scalar).init(self.alloc);
         var schema: ?Schema = null;
-        //var unions = std.ArrayList(Union).init(self.alloc);
+        var unions = std.ArrayList(Union).init(self.alloc);
 
         var desc: ?[]const u8 = null;
         while (true) {
@@ -78,7 +78,7 @@ pub const Parser = struct {
             const next = _next.?;
 
             switch (next.kind) {
-                TokenKind.identifier => {
+                .identifier => {
                     switch (checkKeyword(next.value)) {
                         .directive => {
                             var item = try self.parseDirectiveDef();
@@ -126,22 +126,25 @@ pub const Parser = struct {
                             try objects.append(item);
                         },
                         .union_ => {
-                            return Error.todo;
+                            var item = try self.parseUnion();
+                            item.description = desc;
+                            desc = null;
+                            try unions.append(item);
                         },
                         else => return Error.badParse,
                     }
                 },
-                TokenKind.string => {
+                .string => {
                     if (desc == null) {
                         desc = next.value;
                     } else {
                         return Error.badParse;
                     }
                 },
-                TokenKind.comma => _ = void,
-                TokenKind.comment => _ = void,
-                TokenKind.newline => _ = void,
-                TokenKind.whitespace => _ = void,
+                .comma => _ = void,
+                .comment => _ = void,
+                .newline => _ = void,
+                .whitespace => _ = void,
                 else => return Error.todo,
             }
         }
@@ -288,24 +291,29 @@ pub const Parser = struct {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
         var directives: []Directive = &.{};
-        var next = try self.iter.nextMeaningful();
-        switch (next.kind) {
+        var peeked = self.iter.peekNextMeaningful();
+        if (peeked == null) {
+            return Error.noneNext;
+        }
+        switch (peeked.?.kind) {
             .at => {
                 directives = try self.parseDirectives();
             },
-            .lbrack => {},
+            .lbrack => {
+                _ = try self.iter.requireNextMeaningful(&.{.lbrack});
+            },
             else => return Error.badParse,
         }
 
         var description: ?[]const u8 = null;
         var members = std.ArrayList(EnumValue).init(self.alloc);
         while (true) {
-            next = try self.iter.requireNextMeaningful(&.{.rbrack, .identifier, .string});
+            const next = try self.iter.requireNextMeaningful(&.{.rbrack, .identifier, .string});
             switch (next.kind) {
                 .identifier => {
                     var memberDirectives: []Directive = &.{};
 
-                    const peeked = self.iter.peekNextMeaningful();
+                    peeked = self.iter.peekNextMeaningful();
                     if (peeked != null and peeked.?.kind == .at) {
                         _ = try self.iter.nextMeaningful();
                         memberDirectives = try self.parseDirectives();
@@ -355,7 +363,7 @@ pub const Parser = struct {
                 return Error.badParse;
             }
 
-            if (_next.?.kind != TokenKind.identifier) {
+            if (_next.?.kind != .identifier) {
                 break :blk;
             }
 
@@ -374,7 +382,7 @@ pub const Parser = struct {
                 }
 
                 switch (next.?.kind) {
-                    TokenKind.identifier => {
+                    .identifier => {
                         if (!lastWasAmp) {
                             return Error.badParse;
                         }
@@ -388,14 +396,14 @@ pub const Parser = struct {
                             .lineNum = next.?.lineNum,
                         });
                     },
-                    TokenKind.ampersand => {
+                    .ampersand => {
                         if (lastWasAmp) {
                             return Error.badParse;
                         }
                         lastWasAmp = true;
                         _ = try self.iter.requireNextMeaningful(&.{.ampersand});
                     },
-                    TokenKind.lbrack => break,
+                    .lbrack => break,
                     else => return Error.badParse,
                 }
             }
@@ -409,15 +417,15 @@ pub const Parser = struct {
         while (true) {
             const next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
             switch (next.kind) {
-                TokenKind.rbrack => break,
-                TokenKind.string => {
+                .rbrack => break,
+                .string => {
                     if (desc == null) {
                         desc = next.value;
                     } else {
                         return Error.badParse;
                     }
                 },
-                TokenKind.identifier => {
+                .identifier => {
                     const fld = try self.parseFieldDef(next, desc);
                     desc = null;
                     try fields.append(fld);
@@ -469,15 +477,15 @@ pub const Parser = struct {
         while (true) {
             const _next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
             switch (_next.kind) {
-                TokenKind.rbrack => break,
-                TokenKind.string => {
+                .rbrack => break,
+                .string => {
                     if (desc == null) {
                         desc = _next.value;
                     } else {
                         return Error.badParse;
                     }
                 },
-                TokenKind.identifier => {
+                .identifier => {
                     const fld = try self.parseInputFieldDef(_next);
                     try fields.append(fld);
                 },
@@ -501,7 +509,7 @@ pub const Parser = struct {
 
         var directives: []Directive = &.{};
         const nextMeaningful = self.iter.peekNextMeaningful();
-        if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
+        if (nextMeaningful != null and nextMeaningful.?.kind == .at) {
             directives = try self.parseDirectives();
         }
 
@@ -518,7 +526,7 @@ pub const Parser = struct {
     fn parseSchema(self: *Parser, offset: u64, lineNum: u64) !Schema {
         var directives: []Directive = &.{};
         const nextMeaningful = self.iter.peekNextMeaningful();
-        if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
+        if (nextMeaningful != null and nextMeaningful.?.kind == .at) {
             directives = try self.parseDirectives();
         }
         _ = try self.iter.requireNextMeaningful(&.{.lbrack});
@@ -532,15 +540,15 @@ pub const Parser = struct {
         while (true) {
             const next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
             switch (next.kind) {
-                TokenKind.rbrack => break,
-                TokenKind.string => {
+                .rbrack => break,
+                .string => {
                     if (desc == null) {
                         desc = next.value;
                     } else {
                         return Error.badParse;
                     }
                 },
-                TokenKind.identifier => {
+                .identifier => {
                     const opname = next.value;
 
                     const fld = try self.parseFieldDef(next, desc);
@@ -598,11 +606,67 @@ pub const Parser = struct {
         };
     }
 
+    fn parseUnion(self: *Parser) !Union {
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
+
+        var directives: []Directive = &.{};
+        var peeked = self.iter.peekNextMeaningful();
+        if (peeked == null) {
+            return Error.noneNext;
+        }
+        if (peeked.?.kind == .at) {
+            directives = try self.parseDirectives();
+        }
+
+        peeked = self.iter.peekNextMeaningful();
+        var members = std.ArrayList(NamedType).init(self.alloc);
+        if (peeked != null) {
+            // This is intentionally backwards, so we don't error upon actually reading
+            // the first one.
+            var lastWasbar = switch (peeked.?.kind) {
+                .bar => false,
+                .identifier => true,
+                else => return Error.badParse,
+            };
+
+            while (true) {
+                const next = try self.iter.requireNextMeaningful(&.{.identifier, .bar});
+                switch (next.kind) {
+                    .bar => {
+                        if (lastWasbar) {
+                            return Error.badParse;
+                        }
+                        lastWasbar = true;
+                    },
+                    .identifier => {
+                        if (!lastWasbar) {
+                            return Error.badParse;
+                        }
+                        lastWasbar = false;
+
+                        try members.append(.{
+                            .name = next.value,
+                            .offset = next.offset,
+                            .lineNum = next.lineNum,
+                        });
+                    },
+                    else => return Error.badParse,
+                }
+            }
+        }
+
+        return .{
+            .name = name.value,
+            .directives = directives,
+            .types = try members.toOwnedSlice(),
+        };
+    }
+
     fn parseFieldDef(self: *Parser, name: Token, description: ?[]const u8) !Field {
         var args: ?[]ArgumentDefinition = null;
         const colOrParen = try self.iter.requireNextMeaningful(&.{ .colon, .lparen });
 
-        if (colOrParen.kind == TokenKind.lparen) {
+        if (colOrParen.kind == .lparen) {
             args = try self.parseArgs();
             _ = try self.iter.requireNextMeaningful(&.{.colon});
         }
@@ -611,7 +675,7 @@ pub const Parser = struct {
 
         var directives: []Directive = &.{};
         const nextMeaningful = self.iter.peekNextMeaningful();
-        if (nextMeaningful != null and nextMeaningful.?.kind == TokenKind.at) {
+        if (nextMeaningful != null and nextMeaningful.?.kind == .at) {
             directives = try self.parseDirectives();
         }
 
@@ -630,10 +694,10 @@ pub const Parser = struct {
     fn parseTypeRef(self: *Parser) !TypeRef {
         const next = try self.iter.requireNextMeaningful(&.{ .lsqbrack, .identifier });
         return switch (next.kind) {
-            TokenKind.identifier => {
+            .identifier => {
                 var nullable = true;
                 const nnext = self.iter.peekNextMeaningful();
-                if (nnext != null and nnext.?.kind == TokenKind.bang) {
+                if (nnext != null and nnext.?.kind == .bang) {
                     _ = try self.iter.requireNextMeaningful(&.{.bang});
                     nullable = false;
                 }
@@ -648,7 +712,7 @@ pub const Parser = struct {
                     },
                 };
             },
-            TokenKind.lsqbrack => {
+            .lsqbrack => {
                 // TODO cleanup
                 const ty = try self.alloc.create(TypeRef);
                 ty.* = try self.parseTypeRef();
@@ -656,7 +720,7 @@ pub const Parser = struct {
 
                 var nullable = true;
                 const nnext = self.iter.peekNextMeaningful();
-                if (nnext != null and nnext.?.kind == TokenKind.bang) {
+                if (nnext != null and nnext.?.kind == .bang) {
                     _ = try self.iter.requireNextMeaningful(&.{.bang});
                     nullable = false;
                 }
@@ -678,7 +742,7 @@ pub const Parser = struct {
             const peeked = self.iter.peekNextMeaningful();
             if (peeked == null) {
                 return Error.noneNext;
-            } else if (peeked.?.kind == TokenKind.rparen) {
+            } else if (peeked.?.kind == .rparen) {
                 _ = try self.iter.requireNextMeaningful(&.{.rparen});
                 break;
             }
@@ -716,7 +780,7 @@ pub const Parser = struct {
             const peeked = self.iter.peekNextMeaningful();
             if (peeked == null) {
                 return Error.noneNext;
-            } else if (peeked.?.kind == TokenKind.rparen) {
+            } else if (peeked.?.kind == .rparen) {
                 _ = try self.iter.requireNextMeaningful(&.{.rparen});
                 break;
             }
@@ -869,7 +933,7 @@ pub const Parser = struct {
 
         const next = self.iter.peekNextMeaningful();
         var directives: []Directive = &.{};
-        if (next != null and next.?.kind == TokenKind.at) {
+        if (next != null and next.?.kind == .at) {
             directives = try self.parseDirectives();
         }
 
@@ -937,10 +1001,10 @@ const Iterator = struct {
             const next_ = try self.mustNext();
 
             switch (next_.kind) {
-                TokenKind.comma => _ = void,
-                TokenKind.comment => _ = void,
-                TokenKind.newline => _ = void,
-                TokenKind.whitespace => _ = void,
+                .comma => _ = void,
+                .comment => _ = void,
+                .newline => _ = void,
+                .whitespace => _ = void,
                 else => return next_,
             }
         }
@@ -951,10 +1015,10 @@ const Iterator = struct {
             const next_ = try self.mustNext();
 
             switch (next_.kind) {
-                TokenKind.comma => _ = void,
-                TokenKind.comment => _ = void,
-                TokenKind.newline => _ = void,
-                TokenKind.whitespace => _ = void,
+                .comma => _ = void,
+                .comment => _ = void,
+                .newline => _ = void,
+                .whitespace => _ = void,
                 else => {
                     for (kinds) |kind| {
                         if (next_.kind == kind) {
@@ -977,10 +1041,10 @@ const Iterator = struct {
             }
 
             switch (next_.?.kind) {
-                TokenKind.comma => _ = void,
-                TokenKind.comment => _ = void,
-                TokenKind.newline => _ = void,
-                TokenKind.whitespace => _ = void,
+                .comma => _ = void,
+                .comment => _ = void,
+                .newline => _ = void,
+                .whitespace => _ = void,
                 else => {
                     self.index = curr;
                     return next_;
