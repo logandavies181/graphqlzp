@@ -10,7 +10,7 @@ pub const AstItem = union(enum) {
     namedType: ast.NamedType,
     object: ast.Object,
     interface: ast.Interface,
-    fieldDefinition: ast.Field,
+    fieldDefinition: Field,
 
     // TODO etc
 };
@@ -20,6 +20,19 @@ pub const location = struct {
     len: u64,
     offset: u64,
     lineNum: u64,
+};
+
+pub const Field = struct {
+    field: ast.Field,
+    parent: struct {
+        type: ObjectType,
+        name: []const u8,
+    },
+};
+
+pub const ObjectType = enum {
+    object,
+    interface,
 };
 
 fn _getItemLenAndPos(item: anytype) struct { u64, lsp.types.Position } {
@@ -38,7 +51,7 @@ pub fn getItemLenAndPos(item: AstItem) struct { u64, lsp.types.Position } {
         .namedType => |_item| _getItemLenAndPos(_item),
         .object => |_item| _getItemLenAndPos(_item),
         .interface => |_item| _getItemLenAndPos(_item),
-        .fieldDefinition => |_item| _getItemLenAndPos(_item),
+        .fieldDefinition => |_item| _getItemLenAndPos(_item.field),
         .schema => |sch| {
             return .{
                 6,
@@ -94,18 +107,22 @@ fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !v
     }, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
 
 
-    if (ty == ast.Object) {
-        for (obj.implements) |impl| {
-            try locations.append(.{ .item = .{
-                .namedType = impl,
-            }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
-        }
+    for (obj.implements) |impl| {
+        try locations.append(.{ .item = .{
+            .namedType = impl,
+        }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
     }
 
     for (obj.fields) |fld| {
         try locations.append(.{
             .item = .{
-                .fieldDefinition = fld,
+                .fieldDefinition = .{
+                    .field = fld,
+                    .parent = .{
+                        .type = if (ty == ast.Interface) .interface else .object,
+                        .name = obj.name,
+                    },
+                },
             }, .len = fld.name.len, .offset = fld.offset, .lineNum = fld.lineNum,
         });
 

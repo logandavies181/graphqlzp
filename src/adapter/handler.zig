@@ -51,7 +51,7 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .object => |_item| _item.name,
         .namedType => unreachable,
         .interface => |_item| _item.name,
-        .fieldDefinition => |_item| _item.name,
+        .fieldDefinition => |_item| _item.field.name,
     };
 }
 
@@ -62,7 +62,7 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
         .object => |_item| _item.description,
         .namedType => unreachable,
         .interface => |_item| _item.description,
-        .fieldDefinition => |_item| _item.name,
+        .fieldDefinition => |_item| _item.field.description,
     };
 }
 
@@ -84,34 +84,52 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
         return null;
     }
 
-    const def = locator.getItemDefinition(item.?);
-    if (def == null) {
+    const _def = locator.getItemDefinition(item.?);
+    if (_def == null) {
         return null;
     }
+    const def = _def.?;
 
     // TODO: mem mgmt
-    var content: []u8 = undefined;
-    defer self.alloc.free(content);
-    const keyword = keywordFromType(def.?);
+    var content = std.ArrayList(u8).init(self.alloc);
+    const allocprint = std.fmt.allocPrint;
+
+    const description = descriptionOf(def);
+    if (description != null) {
+        try content.appendSlice(try allocprint(self.alloc, "{s}\n", .{description.?}));
+    }
+    const keyword = keywordFromType(def);
     if (keyword != null) {
-        content = try std.fmt.allocPrint(
+        try content.appendSlice(try allocprint(
             self.alloc,
-            "```graphql\n{s} {s}\n```\n{s}",
-            .{keyword.?, nameOf(def.?), descriptionOf(def.?) orelse ""});
+            "```graphql\n{s} {s}\n```",
+            .{keyword.?, nameOf(def)}));
     } else {
         // assume it's a field
-        const fld = def.?.fieldDefinition;
-        content = try std.fmt.allocPrint(
+        const fld = def.fieldDefinition;
+        const parentKw = switch (fld.parent.type) {
+            .object => "type",
+            .interface => "interface",
+        };
+        try content.appendSlice(try allocprint(
             self.alloc,
-            "```graphql\n{s}: {s}\n```\n{s}",
-            .{fld.name, "todo", descriptionOf(def.?) orelse ""});
+            "```graphql\n{s} {s} {{\n  ,,,\n  {s}: {s}\n  ,,,\n}}\n```",
+            .{parentKw, fld.parent.name, fld.field.name, try formatTypeRef(self.alloc, fld.field.type)}));
     }
-
-    std.debug.print("{s}\n", .{content});
 
     return .{
         .contents = .{
-            .MarkupContent = .{ .kind = .markdown, .value = content },
+            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice() },
+        },
+    };
+}
+
+fn formatTypeRef(alloc: std.mem.Allocator, tr: ast.TypeRef) ![]const u8 {
+    return switch (tr) {
+        .namedType => |nt| if (nt.nullable) nt.name else try std.fmt.allocPrint(alloc, "{s}!", .{nt.name}),
+        .listType => |lt| {
+            const childContent = try formatTypeRef(alloc, lt.ty.*);
+            return try std.fmt.allocPrint(alloc, "[{s}]{s}", .{childContent, if (lt.nullable) "" else "!"});
         },
     };
 }
