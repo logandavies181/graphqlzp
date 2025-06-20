@@ -113,8 +113,8 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
         };
         try content.appendSlice(try allocprint(
             self.alloc,
-            "```graphql\n{s} {s} {{\n  ,,,\n  {s}: {s}\n\n}}\n```",
-            .{parentKw, fld.parent.name, fld.field.name, try formatTypeRef(self.alloc, fld.field.type)}));
+            "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```",
+            .{parentKw, fld.parent.name, fld.field.name, try formatArgDefs(self.alloc, fld.field.args), try formatTypeRef(self.alloc, fld.field.type)}));
     }
 
     return .{
@@ -122,6 +122,26 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
             .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice() },
         },
     };
+}
+
+fn formatArgDefs(alloc: std.mem.Allocator, args: []ast.ArgumentDefinition) ![]const u8 {
+    if (args.len == 0) {
+        return "";
+    }
+
+    var content = std.ArrayList(u8).init(alloc);
+    try content.append('(');
+
+    for (args, 0..args.len) |arg, i| {
+        try content.appendSlice(try std.fmt.allocPrint(alloc, "{s}: {s}", .{arg.name, try formatTypeRef(alloc, arg.ty)}));
+        if (i < args.len - 1) {
+            try content.appendSlice(", ");
+        } else {
+            try content.append(')');
+        }
+    }
+
+    return try content.toOwnedSlice();
 }
 
 fn formatTypeRef(alloc: std.mem.Allocator, tr: ast.TypeRef) ![]const u8 {
