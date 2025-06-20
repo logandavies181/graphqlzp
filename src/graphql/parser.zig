@@ -12,6 +12,7 @@ const DirectiveDef = ast.DirectiveDef;
 const DirectiveLocation = ast.DirectiveLocation;
 const Document = ast.Document;
 const Enum = ast.Enum;
+const EnumValue = ast.EnumValue;
 const Field = ast.Field;
 const Input = ast.Input;
 const InputField = ast.InputField;
@@ -60,12 +61,13 @@ pub const Parser = struct {
 
     fn tryParse(self: *Parser) !Document {
         var directiveDefs = std.ArrayList(DirectiveDef).init(self.alloc);
-        var enums = std.ArrayList(DirectiveDef).init(self.alloc);
+        var enums = std.ArrayList(Enum).init(self.alloc);
         var inputs = std.ArrayList(Input).init(self.alloc);
         var interfaces = std.ArrayList(Interface).init(self.alloc);
         var objects = std.ArrayList(Object).init(self.alloc);
         var scalars = std.ArrayList(Scalar).init(self.alloc);
         var schema: ?Schema = null;
+        //var unions = std.ArrayList(Union).init(self.alloc);
 
         var desc: ?[]const u8 = null;
         while (true) {
@@ -85,7 +87,10 @@ pub const Parser = struct {
                             try directiveDefs.append(item);
                         },
                         .enum_ => {
-                            return Error.todo;
+                            var item = try self.parseEnum();
+                            item.description = desc;
+                            desc = null;
+                            try enums.append(item);
                         },
                         .input => {
                             var item = try self.parseInput();
@@ -277,13 +282,57 @@ pub const Parser = struct {
             .unknown;
     }
 
-    fn parseIdent(self: *Parser) !void {
-        const next = self.iter.next();
-        const memeql = std.mem.eql;
+    fn parseEnum(self: *Parser) !Enum {
+        // TODO: we don't support empty member list yet
 
-        if (memeql(u8, next.value, "type")) {
-            try self.parseTypeDef();
+        const name = try self.iter.requireNextMeaningful(&.{.identifier});
+
+        var directives: []Directive = &.{};
+        var next = try self.iter.nextMeaningful();
+        switch (next.kind) {
+            .at => {
+                directives = try self.parseDirectives();
+            },
+            .lbrack => {},
+            else => return Error.badParse,
         }
+
+        var description: ?[]const u8 = null;
+        var members = std.ArrayList(EnumValue).init(self.alloc);
+        while (true) {
+            next = try self.iter.requireNextMeaningful(&.{.rbrack, .identifier, .string});
+            switch (next.kind) {
+                .identifier => {
+                    var memberDirectives: []Directive = &.{};
+
+                    const peeked = self.iter.peekNextMeaningful();
+                    if (peeked != null and peeked.?.kind == .at) {
+                        _ = try self.iter.nextMeaningful();
+                        memberDirectives = try self.parseDirectives();
+                    }
+
+                    try members.append(.{
+                        .name = next.value,
+                        .description = description,
+                        .directives = memberDirectives,
+                    });
+                    description = null;
+                },
+                .string => {
+                    if (description != null) {
+                        return Error.badParse;
+                    }
+                    description = next.value;
+                },
+                else => return Error.badParse,
+            }
+        }
+
+        return .{
+            .name = name.value,
+            .directives = directives,
+            .values = try members.toOwnedSlice(),
+        };
     }
 
     fn parseObject(self: *Parser) !Object {
