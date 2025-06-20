@@ -324,6 +324,7 @@ pub const Parser = struct {
                     }
                     description = next.value;
                 },
+                .rbrack => break,
                 else => return Error.badParse,
             }
         }

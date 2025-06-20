@@ -52,6 +52,12 @@ type FooFace implements Face & OtherFace {
     zar: Zaz
 }
 
+enum Choices {
+    GOOD,
+    BAD,
+    UGLY,
+}
+
 directive @goober on FIELD_DEFINITION
   | OBJECT
 

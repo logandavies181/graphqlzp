@@ -24,8 +24,7 @@ fn testmain() !void {
 
         std.debug.print("=== {s} ===\n", .{fname[0..len]});
 
-        var lexResult = try lexer.tokenize(alloc, fname[0..len]);
-        defer lexResult.deinit(alloc);
+        const lexResult = try lexer.tokenize(alloc, fname[0..len]);
 
         var _parser = parser.Parser.create(alloc, lexResult.tokens);
         const doc = try _parser.parse();
