@@ -41,11 +41,6 @@ pub const Error = error{
 pub const LexResult = struct {
     tokens: []Token,
     _data: []const u8,
-
-    pub fn deinit(self: *LexResult, alloc: std.mem.Allocator) void {
-        alloc.free(self._data);
-        alloc.free(self.tokens);
-    }
 };
 
 pub fn tokenize(alloc: std.mem.Allocator, path: []const u8) !LexResult {
@@ -65,6 +60,8 @@ const Tokenizer = struct {
     pos: u64 = 0,
     currentOffset: u64 = 0,
 
+    alloc: std.mem.Allocator,
+
     fn create(alloc: std.mem.Allocator, path: []const u8) !Tokenizer {
         const file = try std.fs.cwd().openFile(path, .{});
         const buf = try file.readToEndAlloc(alloc, 65535);
@@ -75,6 +72,7 @@ const Tokenizer = struct {
         return .{
             .buf = buf,
             .iter = iter,
+            .alloc = alloc,
         };
     }
 
@@ -254,23 +252,84 @@ const Tokenizer = struct {
     }
 
     fn readBlock(self: *Tokenizer) !Token {
-        const startPos = self.pos;
         const offset = self.currentOffset;
+
         self.discardNChars(3);
 
-        var len: u64 = 6; // TODO: 6??
-        while (!std.mem.eql(u8, self.iter.peek(3), "\"\"\"")) {
+        var lines = std.ArrayList([]u8).init(self.alloc);
+        var indent: ?u64 = null;
+        var currIndent: u64 = 0;
+        var firstNonWhitespace = false;
+        var linePos = self.pos;
+        var firstLine = true;
+        var removeFirstLine = true;
+        while (true) {
             const next = try self.mustReadChar();
-            len += next.len;
-        }
-        self.discardNChars(3);
+            self.pos += next.len;
 
-        self.pos += len;
-        const val = self.buf[startPos..self.pos];
+            if (!firstLine and !firstNonWhitespace) {
+                if (isWhiteSpace(next)) {
+                    currIndent += 1;
+                    continue;
+                }
+
+                firstNonWhitespace = true;
+                if (indent == null or currIndent < indent.?) {
+                    indent = currIndent;
+                }
+            }
+
+            if (firstLine and !isWhiteSpace(next) and !isNewLine(next)) {
+                removeFirstLine = false;
+            }
+
+            const memeql = std.mem.eql;
+            var numNewlineChars: u64 = 1;
+            if (memeql(u8, next, "\n")) {
+                const peeked = self.iter.peek(1);
+                if (memeql(u8, peeked, "\r")) {
+                    numNewlineChars += 1;
+                    _ = self.readChar();
+                }
+                try lines.append(self.buf[linePos..self.pos-numNewlineChars]);
+                currIndent = 0;
+                linePos = self.pos;
+                firstLine = false;
+                self.lineNum += 1;
+                self.currentOffset = 0;
+            } else if (memeql(u8, next, "\r")) {
+                try lines.append(self.buf[linePos..self.pos-numNewlineChars]);
+                currIndent = 0;
+                linePos = self.pos;
+                firstLine = false;
+                self.lineNum += 1;
+                self.currentOffset = 0;
+            }
+
+            // TODO: handle escape chars
+            if (memeql(u8, self.iter.peek(3), "\"\"\"")) {
+                try lines.append(self.buf[linePos..self.pos]);
+                self.discardNChars(3);
+                break;
+            }
+        }
+
+        var output = std.ArrayList(u8).init(self.alloc);
+        for (lines.items, 0..lines.items.len) |line, i| {
+            if (i == 0) {
+                if (removeFirstLine) {
+                    continue;
+                }
+
+                try output.appendSlice(line);
+            } else {
+                try output.appendSlice(line[indent orelse 0..]);
+            }
+        }
 
         return .{
             .kind = .string,
-            .value = val,
+            .value = try output.toOwnedSlice(),
             .lineNum = self.lineNum,
             .offset = offset,
         };
@@ -355,7 +414,10 @@ const Tokenizer = struct {
     fn discardNChars(self: *Tokenizer, numChars: u8) void {
         self.currentOffset += numChars;
         for (0..numChars) |_| {
-            _ = self.readChar();
+            const next = self.readChar();
+            if (next != null) {
+                self.pos += next.?.len;
+            }
         }
     }
 };

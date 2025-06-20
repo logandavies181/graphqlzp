@@ -26,7 +26,11 @@ type Subscription {
     subscribeFoo: Bar
 }
 
+"""Block comment"""
 type Bar {
+    """
+    Other type of block comment
+    """
     zar: Zaz
 }
 

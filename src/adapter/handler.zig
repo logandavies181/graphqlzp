@@ -170,9 +170,7 @@ pub fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document
             furi;
 
     const lexResult = try lexer.tokenize(self.alloc, fname);
-    // TODO
-    // var lexResult = try lexer.tokenize(self.alloc, fname);
-    // defer lexResult.deinit(self.alloc);
+    // TODO memory mgmt
 
     var _parser = parser.Parser.create(self.alloc, lexResult.tokens);
     const doc = try _parser.parse();
