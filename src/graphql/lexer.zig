@@ -243,7 +243,7 @@ const Tokenizer = struct {
         }
 
         self.pos += len;
-        const val = self.buf[startPos..self.pos-1];
+        const val = self.buf[startPos .. self.pos - 1];
 
         return .{
             .kind = .string,

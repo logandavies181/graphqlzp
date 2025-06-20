@@ -354,6 +354,7 @@ pub const Parser = struct {
                 },
                 TokenKind.identifier => {
                     const fld = try self.parseFieldDef(next, desc);
+                    desc = null;
                     try fields.append(fld);
                 },
                 else => return Error.badParse,
@@ -447,7 +448,6 @@ pub const Parser = struct {
             .offset = name.offset,
             .lineNum = name.lineNum,
         };
-
     }
 
     fn parseSchema(self: *Parser, offset: u64, lineNum: u64) !Schema {
@@ -701,8 +701,6 @@ pub const Parser = struct {
         _ = try self.iter.requireNextMeaningful(&.{.at});
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        std.debug.print("{s}\n", .{name.value});
-
         const next = self.iter.peekNextMeaningful();
         if (next == null) {
             return Error.badParse;
@@ -758,7 +756,7 @@ pub const Parser = struct {
         var locations = std.ArrayList(DirectiveLocation).init(self.alloc);
         var lastWasBar = true;
         while (true) {
-            const _next = self.iter.requireNextMeaningful(&.{.identifier, .bar}) catch |err| {
+            const _next = self.iter.requireNextMeaningful(&.{ .identifier, .bar }) catch |err| {
                 if (err == Error.noneNext) {
                     break;
                 } else {

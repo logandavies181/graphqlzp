@@ -33,13 +33,14 @@ pub fn handler(self: *Handler) _handler {
     };
 }
 
-fn keywordFromType(item: Locator.AstItem) []const u8 {
+fn keywordFromType(item: Locator.AstItem) ?[]const u8 {
     return switch (item) {
         .schema => "schema",
         .scalar => "scalar",
         .object => "type",
         .namedType => unreachable,
         .interface => "interface",
+        .fieldDefinition => null,
     };
 }
 
@@ -50,6 +51,7 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .object => |_item| _item.name,
         .namedType => unreachable,
         .interface => |_item| _item.name,
+        .fieldDefinition => |_item| _item.field.name,
     };
 }
 
@@ -60,6 +62,7 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
         .object => |_item| _item.description,
         .namedType => unreachable,
         .interface => |_item| _item.description,
+        .fieldDefinition => |_item| _item.field.description,
     };
 }
 
@@ -81,17 +84,72 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
         return null;
     }
 
-    const def = locator.getItemDefinition(item.?);
-    if (def == null) {
+    const _def = locator.getItemDefinition(item.?);
+    if (_def == null) {
         return null;
     }
+    const def = _def.?;
 
     // TODO: mem mgmt
-    const content = try std.fmt.allocPrint(self.alloc, "```graphql\n{s} {s}\n```\n{s}", .{keywordFromType(def.?), nameOf(def.?), descriptionOf(def.?) orelse ""});
+    var content = std.ArrayList(u8).init(self.alloc);
+    const allocprint = std.fmt.allocPrint;
+
+    const description = descriptionOf(def);
+    if (description != null) {
+        try content.appendSlice(try allocprint(self.alloc, "{s}\n", .{description.?}));
+    }
+    const keyword = keywordFromType(def);
+    if (keyword != null) {
+        try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, nameOf(def) }));
+    } else {
+        // assume it's a field
+        const fld = def.fieldDefinition;
+        const parentKw = switch (fld.parent.type) {
+            .object => "type",
+            .interface => "interface",
+        };
+        try content
+            .appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try formatArgDefs(self.alloc, fld.field.args), try formatTypeRef(self.alloc, fld.field.type) }));
+    }
 
     return .{
         .contents = .{
-            .MarkupContent = .{ .kind = .markdown, .value = content },
+            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice() },
+        },
+    };
+}
+
+fn formatArgDefs(alloc: std.mem.Allocator, args: []ast.ArgumentDefinition) ![]const u8 {
+    if (args.len == 0) {
+        return "";
+    }
+
+    var content = std.ArrayList(u8).init(alloc);
+    try content.append('(');
+
+    for (args, 0..args.len) |arg, i| {
+        try content
+            .appendSlice(try std.fmt.allocPrint(
+            alloc,
+            "{s}: {s}",
+            .{ arg.name, try formatTypeRef(alloc, arg.ty) },
+        ));
+        if (i < args.len - 1) {
+            try content.appendSlice(", ");
+        } else {
+            try content.append(')');
+        }
+    }
+
+    return try content.toOwnedSlice();
+}
+
+fn formatTypeRef(alloc: std.mem.Allocator, tr: ast.TypeRef) ![]const u8 {
+    return switch (tr) {
+        .namedType => |nt| if (nt.nullable) nt.name else try std.fmt.allocPrint(alloc, "{s}!", .{nt.name}),
+        .listType => |lt| {
+            const childContent = try formatTypeRef(alloc, lt.ty.*);
+            return try std.fmt.allocPrint(alloc, "[{s}]{s}", .{ childContent, if (lt.nullable) "" else "!" });
         },
     };
 }
@@ -103,7 +161,7 @@ fn gotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) Error!l
     };
 }
 
-fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Locator.Locator } {
+pub fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Locator.Locator } {
     // trim file:// if present
     const fname =
         if (std.mem.eql(u8, furi[0..7], "file://"))
