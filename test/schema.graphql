@@ -53,13 +53,19 @@ type FooFace implements Face & OtherFace {
 }
 
 enum Choices {
-    GOOD,
+    GOOD @goober,
     BAD,
     UGLY,
 }
 
+union SumTypes @goober =
+  | Bar
+  | Duck
+
 directive @goober on FIELD_DEFINITION
   | OBJECT
+  | ENUM_VALUE
+  | UNION
 
 # The directive def needs to keep reading until the next definition because
 # there isn't actually anything telling it to stop.

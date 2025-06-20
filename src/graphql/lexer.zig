@@ -21,6 +21,7 @@ pub const TokenKind = enum {
     string,
     ampersand,
     bar,
+    equals,
 };
 
 pub const Token = struct {
@@ -118,6 +119,8 @@ const Tokenizer = struct {
                 token = self.nextCharAs(.lsqbrack);
             } else if (eq(next, ']')) {
                 token = self.nextCharAs(.rsqbrack);
+            } else if (eq(next, '=')) {
+                token = self.nextCharAs(.equals);
             } else if (eq(next, '"')) {
                 token = try self.readStringOrBlock();
             } else {

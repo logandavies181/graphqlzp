@@ -616,7 +616,11 @@ pub const Parser = struct {
         }
         if (peeked.?.kind == .at) {
             directives = try self.parseDirectives();
+        } else if (peeked.?.kind != .equals) {
+            return Error.badParse;
         }
+
+        _ = try self.iter.requireNextMeaningful(&.{.equals});
 
         peeked = self.iter.peekNextMeaningful();
         var members = std.ArrayList(NamedType).init(self.alloc);
@@ -640,6 +644,11 @@ pub const Parser = struct {
                     },
                     .identifier => {
                         if (!lastWasbar) {
+                            if (checkKeyword(next.value) != .unknown) {
+                                self.iter.unread();
+                                break;
+                            }
+
                             return Error.badParse;
                         }
                         lastWasbar = false;
@@ -819,6 +828,7 @@ pub const Parser = struct {
                 .lparen => break,
                 .identifier => break,
                 .rbrack => break,
+                .equals => break,
                 else => return Error.badParse,
             }
         }
