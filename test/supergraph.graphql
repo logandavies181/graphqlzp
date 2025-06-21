@@ -25,7 +25,7 @@ directive @link(url: String, as: String, for: link__Purpose, import: [link__Impo
 scalar join__FieldSet
 
 enum join__Graph {
-  ACCOUNTS @join__graph(name: "accounts")
+  ACCOUNTS @join__graph(name: "accounts", url: "https://accounts.demo.starstuff.dev/")
   INVENTORY @join__graph(name: "inventory", url: "https://inventory.demo.starstuff.dev/")
   PRODUCTS @join__graph(name: "products", url: "https://products.demo.starstuff.dev/")
   REVIEWS @join__graph(name: "reviews", url: "https://reviews.demo.starstuff.dev/")
@@ -45,7 +45,6 @@ enum link__Purpose {
   EXECUTION
 }
 
-# TODO
 type Mutation
   @join__type(graph: PRODUCTS)
   @join__type(graph: REVIEWS)
@@ -53,8 +52,6 @@ type Mutation
   createProduct(upc: ID!, name: String): Product @join__field(graph: PRODUCTS)
   createReview(upc: ID!, id: ID!, body: String): Review @join__field(graph: REVIEWS)
 }
-
-# TODO
 
 type Product
   @join__type(graph: ACCOUNTS, key: "upc", extension: true)
