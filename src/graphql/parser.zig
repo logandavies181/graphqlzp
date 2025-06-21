@@ -331,7 +331,6 @@ pub const Parser = struct {
 
                     peeked = self.iter.peekNextMeaningful();
                     if (peeked != null and peeked.?.kind == .at) {
-                        _ = try self.iter.nextMeaningful();
                         memberDirectives = try self.parseDirectives();
                     }
 
@@ -849,7 +848,7 @@ pub const Parser = struct {
         };
     }
 
-    // Assumes the caller has peeked for @ before calling.
+    /// Assumes the caller has peeked for @ before calling.
     fn parseDirectives(self: *Parser) ![]Directive {
         var directives = std.ArrayList(Directive).init(self.alloc);
 
