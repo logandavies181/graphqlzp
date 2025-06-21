@@ -144,7 +144,7 @@ pub const Value = union(enum) {
     // Float: f64,
     Bool: bool,
     Enum: []const u8,
-    Null: struct{},
+    Null: struct {},
     // TODO
     // List: ,
     // Object: ,
