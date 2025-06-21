@@ -321,7 +321,7 @@ pub const Parser = struct {
         var description: ?[]const u8 = null;
         var members = std.ArrayList(EnumValue).init(self.alloc);
         while (true) {
-            const next = try self.iter.requireNextMeaningful(&.{.rbrack, .identifier, .string});
+            const next = try self.iter.requireNextMeaningful(&.{ .rbrack, .identifier, .string });
             switch (next.kind) {
                 .identifier => {
                     var memberDirectives: []Directive = &.{};
@@ -647,7 +647,7 @@ pub const Parser = struct {
             };
 
             while (true) {
-                const next = try self.iter.requireNextMeaningful(&.{.identifier, .bar});
+                const next = try self.iter.requireNextMeaningful(&.{ .identifier, .bar });
                 switch (next.kind) {
                     .bar => {
                         if (lastWasbar) {

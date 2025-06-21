@@ -343,14 +343,14 @@ const Tokenizer = struct {
                     numNewlineChars += 1;
                     _ = self.readChar();
                 }
-                try lines.append(self.buf[linePos..self.pos-numNewlineChars]);
+                try lines.append(self.buf[linePos .. self.pos - numNewlineChars]);
                 currIndent = 0;
                 linePos = self.pos;
                 firstLine = false;
                 self.lineNum += 1;
                 self.currentOffset = 0;
             } else if (memeql(u8, next, "\r")) {
-                try lines.append(self.buf[linePos..self.pos-numNewlineChars]);
+                try lines.append(self.buf[linePos .. self.pos - numNewlineChars]);
                 currIndent = 0;
                 linePos = self.pos;
                 firstLine = false;
@@ -375,7 +375,7 @@ const Tokenizer = struct {
 
                 try output.appendSlice(line);
             } else {
-                try output.appendSlice(line[indent orelse 0..]);
+                try output.appendSlice(line[indent orelse 0 ..]);
             }
         }
 
