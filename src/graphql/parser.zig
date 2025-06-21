@@ -200,10 +200,10 @@ pub const Parser = struct {
     pub fn parse(self: *Parser) !Document {
         return self.tryParse() catch |err|
             switch (err) {
-                Error.badParse, Error.todo => blk: {
+                Error.badParse, Error.todo, Error.notImplemented => blk: {
                     _ = self.iter.next();
                     const curr = self.iter.current();
-                    std.debug.print("\nBad parse at line: {d}, offset: {d}. Found: {s}\n", .{ curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
+                    std.debug.print("\n{any} at line: {d}, offset: {d}. Found: {s}\n", .{ err, curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
                     break :blk err;
                 },
                 else => blk: {
@@ -985,7 +985,7 @@ const Iterator = struct {
     }
 
     fn next(self: *Iterator) ?Token {
-        if (self.index == self.tokens.len) {
+        if (self.index == self.tokens.len - 1) {
             return null;
         }
 

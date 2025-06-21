@@ -22,6 +22,8 @@ pub const TokenKind = enum {
     ampersand,
     bar,
     equals,
+    int,
+    float,
 };
 
 pub const Token = struct {
@@ -93,6 +95,8 @@ const Tokenizer = struct {
                 token = self.readWhiteSpace();
             } else if (isNewLine(next)) {
                 token = try self.readNewLine(next[0]);
+            } else if (isDigit(next)) {
+                token = try self.readNumber();
             } else if (eq(next, '#')) {
                 token = self.readComment();
             } else if (eq(next, '{')) {
@@ -199,10 +203,55 @@ const Tokenizer = struct {
         return ret;
     }
 
-    fn readStringOrBlock(self: *Tokenizer) !Token {
-        // TODO: check if next todo still needs doing
-        // TODO: don't include quotes in the value
+    fn readNumber(self: *Tokenizer) !Token {
+        const startPos = self.pos;
 
+        // TODO: negative
+        // TODO: no leading zeros
+
+        while (true) {
+            const next = self.iter.peek(1);
+            if (!isDigit(next)) {
+                break;
+            }
+            _ = self.readChar();
+            self.pos += next.len;
+        }
+
+        const peeked = self.iter.peek(1);
+        if (!eq(peeked, '.')) {
+            return .{
+                .kind = .int,
+                .value = self.buf[startPos..self.pos],
+
+                .offset = self.currentOffset,
+                .lineNum = self.lineNum,
+            };
+        }
+
+        _ = try self.mustReadChar();
+
+        // TODO: exponent form
+
+        while (true) {
+            const next = self.iter.peek(1);
+            if (!isDigit(next)) {
+                break;
+            }
+            _ = self.readChar();
+            self.pos += next.len;
+        }
+
+        return .{
+            .kind = .float,
+            .value = self.buf[startPos..self.pos],
+
+            .offset = self.currentOffset,
+            .lineNum = self.lineNum,
+        };
+    }
+
+    fn readStringOrBlock(self: *Tokenizer) !Token {
         const next3 = self.iter.peek(3);
         const memeql = std.mem.eql;
         if (next3.len == 1) {
