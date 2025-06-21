@@ -692,7 +692,7 @@ pub const Parser = struct {
         const colOrParen = try self.iter.requireNextMeaningful(&.{ .colon, .lparen });
 
         if (colOrParen.kind == .lparen) {
-            args = try self.parseArgs();
+            args = try self.parseArgumentDefinitions();
             _ = try self.iter.requireNextMeaningful(&.{.colon});
         }
 
@@ -761,7 +761,7 @@ pub const Parser = struct {
         };
     }
 
-    fn _parseArgs(self: *Parser) ![]Argument {
+    fn parseArguments(self: *Parser) ![]Argument {
         var args = std.ArrayList(Argument).init(self.alloc);
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
@@ -772,13 +772,13 @@ pub const Parser = struct {
                 break;
             }
 
-            const next = try self._parseArg();
+            const next = try self.parseArgument();
             try args.append(next);
         }
         return try args.toOwnedSlice();
     }
 
-    fn _parseArg(self: *Parser) !Argument {
+    fn parseArgument(self: *Parser) !Argument {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
         _ = try self.iter.requireNextMeaningful(&.{.colon});
         const val = try self.parseValue();
@@ -813,7 +813,7 @@ pub const Parser = struct {
         };
     }
 
-    fn parseArgs(self: *Parser) ![]ArgumentDefinition {
+    fn parseArgumentDefinitions(self: *Parser) ![]ArgumentDefinition {
         var args = std.ArrayList(ArgumentDefinition).init(self.alloc);
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
@@ -824,13 +824,13 @@ pub const Parser = struct {
                 break;
             }
 
-            const next = try self.parseArg();
+            const next = try self.parseArgumentDefinition();
             try args.append(next);
         }
         return try args.toOwnedSlice();
     }
 
-    fn parseArg(self: *Parser) !ArgumentDefinition {
+    fn parseArgumentDefinition(self: *Parser) !ArgumentDefinition {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
         _ = try self.iter.requireNextMeaningful(&.{.colon});
         const ty = try self.parseTypeRef();
@@ -875,7 +875,7 @@ pub const Parser = struct {
         var args: []Argument = &.{};
         if (next.?.kind == .lparen) {
             _ = try self.iter.requireNextMeaningful(&.{.lparen});
-            args = try self._parseArgs();
+            args = try self.parseArguments();
         }
 
         return .{
@@ -897,7 +897,7 @@ pub const Parser = struct {
         switch (peeked.?.kind) {
             .lparen => {
                 _ = try self.iter.requireNextMeaningful(&.{.lparen});
-                args = try self.parseArgs();
+                args = try self.parseArgumentDefinitions();
             },
             .identifier => {},
             else => return Error.badParse,
