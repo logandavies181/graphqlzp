@@ -29,13 +29,16 @@ const Keyword = enum {
     unknown,
     directive,
     enum_,
+    false,
     implements,
     input,
     interface,
+    null,
     on,
     repeatable,
     scalar,
     schema,
+    true,
     type,
     union_,
 };
@@ -788,12 +791,26 @@ pub const Parser = struct {
 
     fn parseValue(self: *Parser) !Value {
         const next = try self.iter.nextMeaningful();
-        switch (next.kind) {
-            .string => return .{
+        return switch (next.kind) {
+            .string => .{
                 .String = next.value,
             },
+            .identifier => switch (checkKeyword(next.value)) {
+                .false => .{
+                    .Bool = false,
+                },
+                .true => .{
+                    .Bool = true,
+                },
+                .null => .{
+                    .Null = .{},
+                },
+                else => .{
+                    .Enum = next.value,
+                },
+            },
             else => return Error.notImplemented,
-        }
+        };
     }
 
     fn parseArgs(self: *Parser) ![]ArgumentDefinition {
@@ -838,10 +855,7 @@ pub const Parser = struct {
                 .at => {
                     try directives.append(try self.parseDirective());
                 },
-                .lparen => break,
-                .identifier => break,
-                .rbrack => break,
-                .equals => break,
+                .lbrack, .lparen, .identifier, .equals, .rbrack => break,
                 else => return Error.badParse,
             }
         }

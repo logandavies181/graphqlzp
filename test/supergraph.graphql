@@ -1,14 +1,11 @@
 # Copied from https://www.apollographql.com/docs/graphos/routing/get-started
 
-# schema
-#   @link(url: "https://specs.apollo.dev/link/v1.0")
-#   @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
-# {
-#   query: Query
-#   mutation: Mutation
-# }
-schema {
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+{
   query: Query
+  mutation: Mutation
 }
 
 directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
