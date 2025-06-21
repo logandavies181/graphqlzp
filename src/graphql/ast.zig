@@ -159,6 +159,7 @@ pub const ArgumentDefinition = struct {
     description: ?[]const u8 = null,
     name: []const u8,
     ty: TypeRef,
+    default: ?Value,
 };
 
 pub const Scalar = struct {

@@ -835,9 +835,17 @@ pub const Parser = struct {
         _ = try self.iter.requireNextMeaningful(&.{.colon});
         const ty = try self.parseTypeRef();
 
+        const next = self.iter.peekNextMeaningful();
+        var default: ?Value = null;
+        if (next != null and next.?.kind == .equals) {
+            _ = try self.iter.requireNextMeaningful(&.{.equals});
+            default = try self.parseValue();
+        }
+
         return .{
             .name = name.value,
             .ty = ty,
+            .default = default,
         };
     }
 
