@@ -140,8 +140,8 @@ pub const DirectiveLocation = enum {
 
 pub const Value = union(enum) {
     String: []const u8,
-    // Int: u64,
-    // Float: f64,
+    Int: i64,
+    Float: f64,
     Bool: bool,
     Enum: []const u8,
     Null: struct {},

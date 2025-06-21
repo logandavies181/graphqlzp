@@ -424,6 +424,12 @@ pub const Parser = struct {
             }
         }
 
+        const peeked = self.iter.peekNextMeaningful();
+        var directives: []Directive = &.{};
+        if (peeked != null and peeked.?.kind == .at) {
+            directives = try self.parseDirectives();
+        }
+
         _ = try self.iter.requireNextMeaningful(&.{.lbrack});
 
         var fields = std.ArrayList(Field).init(self.alloc);
@@ -807,6 +813,12 @@ pub const Parser = struct {
                 else => .{
                     .Enum = next.value,
                 },
+            },
+            .int => .{
+                .Int = try std.fmt.parseInt(i64, next.value, 10),
+            },
+            .float => .{
+                .Float = try std.fmt.parseFloat(f64, next.value),
             },
             else => return Error.notImplemented,
         };
