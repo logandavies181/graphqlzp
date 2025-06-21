@@ -44,6 +44,7 @@ const Error = error{
     badParse,
     badFieldDefParse,
     noneNext,
+    noSchema,
     notImplemented,
     todo,
 };
@@ -179,7 +180,7 @@ pub const Parser = struct {
             }
 
             if (query == null) {
-                return Error.badParse;
+                return Error.noSchema;
             }
 
             schema = .{
@@ -201,9 +202,21 @@ pub const Parser = struct {
         return self.tryParse() catch |err|
             switch (err) {
                 Error.badParse, Error.todo, Error.notImplemented => blk: {
-                    _ = self.iter.next();
-                    const curr = self.iter.current();
-                    std.debug.print("\n{any} at line: {d}, offset: {d}. Found: {s}\n", .{ err, curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
+                    const _curr = self.iter.next();
+                    if (_curr != null) {
+                        const curr = _curr.?;
+                        std.debug.print("\n{any} at line: {d}, offset: {d}. Found: {s}\n", .{ err, curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
+                    } else {
+                        if (self.iter.tokens.len == 0) {
+                            std.debug.print("No tokens\n", .{});
+                        } else {
+                            std.debug.print("Probably last token\n", .{});
+                        }
+                    }
+                    break :blk err;
+                },
+                Error.noSchema => blk: {
+                    std.debug.print("Failed validation - no schema\n", .{});
                     break :blk err;
                 },
                 else => blk: {
@@ -974,10 +987,6 @@ const Iterator = struct {
         };
     }
 
-    fn current(self: *Iterator) Token {
-        return self.tokens[self.index];
-    }
-
     fn unread(self: *Iterator) void {
         if (self.index > 0) {
             self.index -= 1;
@@ -985,12 +994,11 @@ const Iterator = struct {
     }
 
     fn next(self: *Iterator) ?Token {
-        if (self.index == self.tokens.len - 1) {
+        if (self.tokens.len == 0 or self.index == self.tokens.len) {
             return null;
         }
 
         const ret = self.tokens[self.index];
-        // std.debug.print("{s}", .{ret.value});
         self.index += 1;
         return ret;
     }
