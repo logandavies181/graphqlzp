@@ -98,14 +98,23 @@ pub fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
 }
 
 fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !void {
-    try locations.append(.{ .item = .{
-        .object = obj,
-    }, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
+    const item: AstItem =
+        if (ty == ast.Object)
+            .{ .object = obj }
+        else if (ty == ast.Interface)
+            .{ .interface = obj }
+        else
+            return;
 
-    for (obj.implements) |impl| {
-        try locations.append(.{ .item = .{
-            .namedType = impl,
-        }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
+    try locations.append(.{ .item = item, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
+
+    // TODO interfaces implenting?
+    if (ty == ast.Object) {
+        for (obj.implements) |impl| {
+            try locations.append(.{ .item = .{
+                .namedType = impl,
+            }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
+        }
     }
 
     for (obj.fields) |fld| {
@@ -156,16 +165,10 @@ pub const Locator = struct {
         }
 
         for (doc.interfaces) |item| {
-            try locations.append(.{ .item = .{
-                .interface = item,
-            }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
-            for (item.fields) |fld| {
-                const nt = getNamedTypeFromTypeRef(fld.type);
-                try locations.append(.{ .item = .{
-                    .namedType = nt,
-                }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
-            }
+            try locateObjectFields(ast.Interface, item, &locations);
         }
+
+        //for (doc.unions) |item|
 
         return .{
             .locations = try locations.toOwnedSlice(),
@@ -219,6 +222,11 @@ pub const Locator = struct {
                         return null;
                     },
                 }
+            },
+            .interface => |ifce| {
+                return .{
+                    .interface = ifce,
+                };
             },
             .fieldDefinition => |fd| {
                 return .{

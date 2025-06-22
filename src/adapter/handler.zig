@@ -84,11 +84,9 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
         return null;
     }
 
-    const _def = locator.getItemDefinition(item.?);
-    if (_def == null) {
+    const def = locator.getItemDefinition(item.?) orelse {
         return null;
-    }
-    const def = _def.?;
+    };
 
     // TODO: mem mgmt
     var content = std.ArrayList(u8).init(self.alloc);
@@ -187,7 +185,7 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
 
     const item = locator.getItemAt(params.position.character, params.position.line);
     if (item == null) {
-        std.debug.print("nothing found\n", .{}); // TODO
+        std.debug.print("nothing found in locator\n", .{}); // TODO
         return null;
     }
 
