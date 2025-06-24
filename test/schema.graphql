@@ -32,7 +32,12 @@ type Bar {
     Other type of block comment
     """
     zar: Zaz
+
+    # Underscores are valid in names
+    _foo_bar: _foo_bar
 }
+
+scalar _foo_bar
 
 input InBar {
     zar: Zaz
