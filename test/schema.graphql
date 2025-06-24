@@ -15,7 +15,7 @@ type Query {
     listFoo: [Bar]
     listNonNullFoo: [Bar!]
     nonNullListNonNullFoo: [Bar!]!
-    fooWithArgs(in: InBar): Bar
+    fooWithArgs(in: InBar, listIn: [InBar]): Bar
 }
 
 type Mutation {
@@ -37,7 +37,7 @@ type Bar {
     _foo_bar: _foo_bar
 }
 
-scalar _foo_bar
+scalar _foo_bar @gooberWithArgs(listArg: ["one", "two", "three"], nonNullArg: "foo")
 
 input InBar {
     zar: Zaz
@@ -71,6 +71,8 @@ directive @goober on FIELD_DEFINITION
   | OBJECT
   | ENUM_VALUE
   | UNION
+
+directive @gooberWithArgs(arg: String, listArg: [String], nonNullArg: String!) on SCALAR
 
 # The directive def needs to keep reading until the next definition because
 # there isn't actually anything telling it to stop.

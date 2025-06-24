@@ -145,8 +145,8 @@ pub const Value = union(enum) {
     Bool: bool,
     Enum: []const u8,
     Null: struct {},
+    List: []Value,
     // TODO
-    // List: ,
     // Object: ,
 };
 

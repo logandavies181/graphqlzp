@@ -786,7 +786,7 @@ pub const Parser = struct {
     fn parseArgument(self: *Parser) !Argument {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
         _ = try self.iter.requireNextMeaningful(&.{.colon});
-        const val = try self.parseValue();
+        const val = try self.parseValue() orelse return Error.badParse;
 
         return .{
             .name = name.value,
@@ -794,7 +794,7 @@ pub const Parser = struct {
         };
     }
 
-    fn parseValue(self: *Parser) !Value {
+    fn parseValue(self: *Parser) !?Value {
         const next = try self.iter.nextMeaningful();
         return switch (next.kind) {
             .string => .{
@@ -820,6 +820,19 @@ pub const Parser = struct {
             .float => .{
                 .Float = try std.fmt.parseFloat(f64, next.value),
             },
+            .lsqbrack => blk: {
+                var listItems = std.ArrayList(Value).init(self.alloc);
+                while (true) {
+                    const _next = try self.parseValue();
+                    if (_next == null) {
+                        break :blk .{
+                            .List = try listItems.toOwnedSlice(),
+                        };
+                    }
+                    try listItems.append(_next.?);
+                }
+            },
+            .rsqbrack => null,
             else => return Error.notImplemented,
         };
     }
