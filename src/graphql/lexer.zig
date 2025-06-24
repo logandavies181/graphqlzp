@@ -89,7 +89,7 @@ const Tokenizer = struct {
             }
 
             var token: Token = undefined;
-            if (isLetter(next)) {
+            if (isNameStart(next)) {
                 token = self.readIdent();
             } else if (isWhiteSpace(next)) {
                 token = self.readWhiteSpace();
@@ -152,8 +152,12 @@ const Tokenizer = struct {
         return cp.len == 1 and (cp[0] >= '0' and cp[0] <= '9');
     }
 
-    fn isIdentChar(cp: []const u8) bool {
-        return isDigit(cp) or isLetter(cp) or eq(cp, '_');
+    fn isNameStart(cp: []const u8) bool {
+        return isLetter(cp) or eq(cp, '_');
+    }
+
+    fn isNameContinue(cp: []const u8) bool {
+        return isNameStart(cp) or isDigit(cp);
     }
 
     fn isNewLine(cp: []const u8) bool {
@@ -165,7 +169,7 @@ const Tokenizer = struct {
     }
 
     fn readIdent(self: *Tokenizer) Token {
-        return self.readWhile(.identifier, isIdentChar);
+        return self.readWhile(.identifier, isNameContinue);
     }
 
     fn readWhiteSpace(self: *Tokenizer) Token {
