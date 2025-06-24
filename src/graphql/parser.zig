@@ -794,6 +794,8 @@ pub const Parser = struct {
         };
     }
 
+    /// Only returns null upon ], which is only valid when parsing List Values and
+    /// should be treated as an error otherwise.
     fn parseValue(self: *Parser) !?Value {
         const next = try self.iter.nextMeaningful();
         return switch (next.kind) {
@@ -863,7 +865,7 @@ pub const Parser = struct {
         var default: ?Value = null;
         if (next != null and next.?.kind == .equals) {
             _ = try self.iter.requireNextMeaningful(&.{.equals});
-            default = try self.parseValue();
+            default = try self.parseValue() orelse return Error.badParse;
         }
 
         return .{
