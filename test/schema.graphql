@@ -15,7 +15,7 @@ type Query {
     listFoo: [Bar]
     listNonNullFoo: [Bar!]
     nonNullListNonNullFoo: [Bar!]!
-    fooWithArgs(in: InBar, listIn: [InBar]): Bar
+    fooWithArgs("args can have docstrings" in: InBar, listIn: [InBar]): Bar
 }
 
 type Mutation {

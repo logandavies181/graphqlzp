@@ -841,17 +841,40 @@ pub const Parser = struct {
 
     fn parseArgumentDefinitions(self: *Parser) ![]ArgumentDefinition {
         var args = std.ArrayList(ArgumentDefinition).init(self.alloc);
+        var description: ?[]const u8 = null;
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
             if (peeked == null) {
                 return Error.noneNext;
-            } else if (peeked.?.kind == .rparen) {
-                _ = try self.iter.requireNextMeaningful(&.{.rparen});
-                break;
             }
 
-            const next = try self.parseArgumentDefinition();
-            try args.append(next);
+            switch (peeked.?.kind) {
+                .rparen => {
+                    if (description != null) {
+                        // Floating docstring
+                        return Error.badParse;
+                    }
+
+                    _ = try self.iter.requireNextMeaningful(&.{.rparen});
+                    break;
+                },
+                .identifier => {
+                    var next = try self.parseArgumentDefinition();
+                    next.description = description;
+                    description = null;
+                    try args.append(next);
+                },
+                .string => {
+                    if (description != null) {
+                        // Two strings in a row
+                        return Error.badParse;
+                    }
+                    const next = try self.iter.requireNextMeaningful(&.{.string});
+                    description = next.value;
+                },
+                else => return Error.badParse,
+            }
+
         }
         return try args.toOwnedSlice();
     }
