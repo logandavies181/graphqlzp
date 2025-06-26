@@ -8,7 +8,7 @@ schema {
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 "The q\"uery"
-type Query {
+type Query @goober {
     "field description"
     foo: Bar
     nonNullFoo: Bar!
@@ -49,7 +49,7 @@ interface Face {
     zar: Zaz
 }
 
-interface OtherFace {
+interface OtherFace implements Face @goober {
     zar: Zaz
 }
 
@@ -70,6 +70,7 @@ union SumTypes @goober =
 directive @goober on FIELD_DEFINITION
   | OBJECT
   | ENUM_VALUE
+  | INTERFACE
   | UNION
 
 directive @gooberWithArgs(arg: String, listArg: [String], nonNullArg: String!) on SCALAR

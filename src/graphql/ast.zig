@@ -80,8 +80,10 @@ pub const InputField = struct {
 
 pub const Interface = struct {
     description: ?[]const u8 = null,
+    directives: []Directive = &.{},
     name: []const u8,
     fields: []Field,
+    implements: []NamedType = &.{},
 
     offset: u64,
     lineNum: u64,

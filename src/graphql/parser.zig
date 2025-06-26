@@ -370,9 +370,10 @@ pub const Parser = struct {
     fn parse_struct(self: *Parser, ty: type) !ty {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        // TODO: it seems interfaces can implement interfaces.
         var implements = std.ArrayList(NamedType).init(self.alloc);
-        if (ty == Object) blk: {
+        blk: {
+            // TODO break out parsing implements section.
+
             const _next = self.iter.peekNextMeaningful();
             if (_next == null) {
                 return Error.badParse;
@@ -419,6 +420,7 @@ pub const Parser = struct {
                         _ = try self.iter.requireNextMeaningful(&.{.ampersand});
                     },
                     .lbrack => break,
+                    .at => break,
                     else => return Error.badParse,
                 }
             }
@@ -455,19 +457,14 @@ pub const Parser = struct {
             }
         }
 
-        var ret: ty = .{
+        return .{
             .name = name.value,
             .fields = try fields.toOwnedSlice(),
+            .directives = directives,
 
             .offset = name.offset,
             .lineNum = name.lineNum,
         };
-
-        if (ty == Object) {
-            ret.implements = try implements.toOwnedSlice();
-        }
-
-        return ret;
     }
 
     fn parseInput(self: *Parser) !Input {
