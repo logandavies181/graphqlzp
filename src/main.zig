@@ -2,8 +2,16 @@ const std = @import("std");
 const lsp = @import("lsp");
 const Handler = @import("adapter/handler.zig");
 const Server = @import("lzp/server.zig");
+const config = @import("config");
 
 pub fn main() !void {
+    var args = std.process.args();
+    _ = args.next(); // binary name
+    if (std.mem.eql(u8, args.next() orelse "", "--version")) {
+        std.debug.print("{s}\n", .{config.version});
+        std.process.exit(0);
+    }
+
     var gpa = std.heap.DebugAllocator(.{}).init;
     const alloc = gpa.allocator();
 

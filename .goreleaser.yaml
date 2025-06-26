@@ -4,6 +4,7 @@ builds:
   - builder: zig
     flags:
       - -Doptimize=ReleaseSafe
+      - -Dversion={{ .Version }}
     targets:
       - x86_64-linux
       - x86_64-windows

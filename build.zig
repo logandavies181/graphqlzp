@@ -19,6 +19,12 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("lsp", lsp_codegen.module("lsp"));
 
+    const version = b.option([]const u8, "version", "application version string") orelse "0.0.0";
+    const options = b.addOptions();
+    options.addOption([]const u8, "version", version);
+
+    exe.root_module.addOptions("config", options);
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
