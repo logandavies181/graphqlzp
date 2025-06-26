@@ -871,7 +871,6 @@ pub const Parser = struct {
                 },
                 else => return Error.badParse,
             }
-
         }
         return try args.toOwnedSlice();
     }
