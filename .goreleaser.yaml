@@ -7,7 +7,8 @@ builds:
       - -Dversion={{ .Version }}
     targets:
       - x86_64-linux
-      - x86_64-windows
+      # TODO - some build error. Probably std.process.args related.
+      # - x86_64-windows
       - aarch64-linux
       - x86_64-macos
       - aarch64-macos
