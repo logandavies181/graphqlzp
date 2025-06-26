@@ -82,6 +82,13 @@ const Tokenizer = struct {
     fn tokenize(self: *Tokenizer, alloc: std.mem.Allocator) ![]Token {
         var tokens = std.ArrayList(Token).init(alloc);
 
+        // TODO move BOM check to standard lexing. Spec says we can just ignore it in the middle of files.
+        const first = self.iter.peek(1);
+        if (first.len == 3 and first[0] == 0xEF and first[1] == 0xBB and first[2] == 0xBF) {
+            _ = self.iter.nextCodepointSlice();
+            self.pos = 3;
+        }
+
         while (true) {
             const next = self.iter.peek(1);
             if (next.len == 0) {
