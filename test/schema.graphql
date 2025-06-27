@@ -63,10 +63,16 @@ enum Choices {
     UGLY,
 }
 
+# Directive definitions and unions need to keep reading until the next definition
+# or string because there isn't a right bracket telling it to stop.
+
+union Foo = Bar
+
 union SumTypes @goober =
   | Bar
   | Duck
 
+"description after a union"
 directive @goober on FIELD_DEFINITION
   | OBJECT
   | ENUM_VALUE
@@ -75,8 +81,7 @@ directive @goober on FIELD_DEFINITION
 
 directive @gooberWithArgs(arg: String, listArg: [String], nonNullArg: String!) on SCALAR
 
-# The directive def needs to keep reading until the next definition because
-# there isn't actually anything telling it to stop.
+"description after a directive"
 type Duck {
     zar: Zaz
 }

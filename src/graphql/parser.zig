@@ -652,7 +652,7 @@ pub const Parser = struct {
             };
 
             while (true) {
-                const next = try self.iter.requireNextMeaningful(&.{ .identifier, .bar });
+                const next = try self.iter.nextMeaningful();
                 switch (next.kind) {
                     .bar => {
                         if (lastWasbar) {
@@ -677,6 +677,7 @@ pub const Parser = struct {
                             .lineNum = next.lineNum,
                         });
                     },
+                    .string => break,
                     else => return Error.badParse,
                 }
             }
@@ -975,7 +976,7 @@ pub const Parser = struct {
         var locations = std.ArrayList(DirectiveLocation).init(self.alloc);
         var lastWasBar = true;
         while (true) {
-            const _next = self.iter.requireNextMeaningful(&.{ .identifier, .bar }) catch |err| {
+            const _next = self.iter.nextMeaningful() catch |err| {
                 if (err == Error.noneNext) {
                     break;
                 } else {
@@ -1006,6 +1007,7 @@ pub const Parser = struct {
                     }
                     lastWasBar = true;
                 },
+                .string => break,
                 else => unreachable,
             }
         }
