@@ -206,7 +206,7 @@ fn initializeHandler(server: *Server, _: std.mem.Allocator, _: types.InitializeP
             .version = version,
         },
         .capabilities = .{
-            .positionEncoding = .@"utf-16", // TODO
+            .positionEncoding = .@"utf-8", // TODO
             // .positionEncoding = switch (server.offset_encoding) {
             //     .@"utf-8" => .@"utf-8",
             //     .@"utf-16" => .@"utf-16",
