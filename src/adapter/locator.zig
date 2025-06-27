@@ -137,8 +137,9 @@ const locatorBuilder = struct {
                 .item = .{
                     .directive = dr,
                 },
-                .len = dr.name.len,
-                .offset = dr.offset,
+                // hackily include the preceding @
+                .len = dr.name.len + 1,
+                .offset = dr.offset - 1,
                 .lineNum = dr.lineNum,
             });
         }
@@ -149,8 +150,9 @@ const locatorBuilder = struct {
             .item = .{
                 .directiveDefinition = directiveDef,
             },
-            .len = directiveDef.name.len,
-            .offset = directiveDef.offset,
+            // hackily include the preceding @
+            .len = directiveDef.name.len + 1,
+            .offset = directiveDef.offset - 1,
             .lineNum = directiveDef.lineNum
         });
     }
@@ -185,6 +187,12 @@ const locatorBuilder = struct {
             }
         }
     }
+
+    fn addScalar(self: *locatorBuilder, item: ast.Scalar) !void {
+        try self.locations.append(.{ .item = .{
+            .scalar = item,
+        }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+    }
 };
 
 
@@ -201,9 +209,7 @@ pub const Locator = struct {
         }
 
         for (doc.scalars) |item| {
-            try locations.append(.{ .item = .{
-                .scalar = item,
-            }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+            try lb.addScalar(item);
         }
 
         for (doc.interfaces) |item| {
