@@ -11,6 +11,8 @@ pub const AstItem = union(enum) {
     object: ast.Object,
     interface: ast.Interface,
     fieldDefinition: Field,
+    directive: ast.Directive,
+    directiveDefinition: ast.DirectiveDef,
 
     // TODO etc
 };
@@ -61,6 +63,8 @@ pub fn getItemLenAndPos(item: AstItem) struct { u64, lsp.types.Position } {
                 },
             };
         },
+        .directive => |_item| _getItemLenAndPos(_item),
+        .directiveDefinition => |_item| _getItemLenAndPos(_item),
     };
 }
 
@@ -97,55 +101,92 @@ pub fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
     };
 }
 
-fn locateObjectFields(ty: type, obj: ty, locations: *std.ArrayList(location)) !void {
-    const item: AstItem =
-        if (ty == ast.Object)
-            .{ .object = obj }
-        else if (ty == ast.Interface)
-            .{ .interface = obj }
-        else
-            return;
+const locatorBuilder = struct {
+    locations: *std.ArrayList(location),
 
-    try locations.append(.{ .item = item, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
+    fn init(locations: *std.ArrayList(location)) locatorBuilder {
+        return .{
+            .locations = locations,
+        };
+    }
 
-    // TODO interfaces implenting?
-    if (ty == ast.Object) {
+    fn addObject(self: *locatorBuilder, ty: type, obj: ty) !void {
+        const item: AstItem =
+            if (ty == ast.Object)
+                .{ .object = obj }
+            else if (ty == ast.Interface)
+                .{ .interface = obj }
+            else
+                return;
+
+        try self.locations.append(.{ .item = item, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
+
         for (obj.implements) |impl| {
-            try locations.append(.{ .item = .{
+            try self.locations.append(.{ .item = .{
                 .namedType = impl,
             }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
         }
+
+        try self.addDirectives(obj);
+        try self.addFieldDefinitions(obj.fields, ty, obj);
     }
 
-    for (obj.fields) |fld| {
-        try locations.append(.{
-            .item = .{
-                .fieldDefinition = .{
-                    .field = fld,
-                    .parent = .{
-                        .type = if (ty == ast.Interface) .interface else .object,
-                        .name = obj.name,
-                    },
+    fn addDirectives(self: *locatorBuilder, obj: anytype) !void {
+        for (obj.directives) |dr| {
+            try self.locations.append(.{
+                .item = .{
+                    .directive = dr,
                 },
-            },
-            .len = fld.name.len,
-            .offset = fld.offset,
-            .lineNum = fld.lineNum,
-        });
-
-        const nt = getNamedTypeFromTypeRef(fld.type);
-        try locations.append(.{ .item = .{
-            .namedType = nt,
-        }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
-
-        for (fld.args) |arg| {
-            const _nt = getNamedTypeFromTypeRef(arg.ty);
-            try locations.append(.{ .item = .{
-                .namedType = _nt,
-            }, .len = _nt.name.len, .offset = _nt.offset, .lineNum = _nt.lineNum });
+                .len = dr.name.len,
+                .offset = dr.offset,
+                .lineNum = dr.lineNum,
+            });
         }
     }
-}
+
+    fn addDirectiveDefinitions(self: *locatorBuilder, directiveDef: ast.DirectiveDef) !void {
+        try self.locations.append(.{
+            .item = .{
+                .directiveDefinition = directiveDef,
+            },
+            .len = directiveDef.name.len,
+            .offset = directiveDef.offset,
+            .lineNum = directiveDef.lineNum
+        });
+    }
+
+    fn addFieldDefinitions(self: *locatorBuilder, fields: []ast.Field, parentTy: type, parent: parentTy) !void {
+        for (fields) |fld| {
+            try self.locations.append(.{
+                .item = .{
+                    .fieldDefinition = .{
+                        .field = fld,
+                        .parent = .{
+                            .type = if (parentTy == ast.Interface) .interface else .object,
+                            .name = parent.name,
+                        },
+                    },
+                },
+                .len = fld.name.len,
+                .offset = fld.offset,
+                .lineNum = fld.lineNum,
+            });
+
+            const nt = getNamedTypeFromTypeRef(fld.type);
+            try self.locations.append(.{ .item = .{
+                .namedType = nt,
+            }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
+
+            for (fld.args) |arg| {
+                const _nt = getNamedTypeFromTypeRef(arg.ty);
+                try self.locations.append(.{ .item = .{
+                    .namedType = _nt,
+                }, .len = _nt.name.len, .offset = _nt.offset, .lineNum = _nt.lineNum });
+            }
+        }
+    }
+};
+
 
 pub const Locator = struct {
     locations: []location,
@@ -153,9 +194,10 @@ pub const Locator = struct {
 
     pub fn init(doc: ast.Document, alloc: std.mem.Allocator) !Locator {
         var locations = std.ArrayList(location).init(alloc);
+        var lb = locatorBuilder.init(&locations);
 
         for (doc.objects) |item| {
-            try locateObjectFields(ast.Object, item, &locations);
+            try lb.addObject(ast.Object, item);
         }
 
         for (doc.scalars) |item| {
@@ -165,7 +207,11 @@ pub const Locator = struct {
         }
 
         for (doc.interfaces) |item| {
-            try locateObjectFields(ast.Interface, item, &locations);
+            try lb.addObject(ast.Interface, item);
+        }
+
+        for (doc.directiveDefinitions) |dd| {
+            try lb.addDirectiveDefinitions(dd);
         }
 
         //for (doc.unions) |item|
@@ -232,6 +278,16 @@ pub const Locator = struct {
                 return .{
                     .fieldDefinition = fd,
                 };
+            },
+            .directive => |dr| {
+                for (self.doc.directiveDefinitions) |dd| {
+                    if (std.mem.eql(u8, dr.name, dd.name)) {
+                        return .{
+                            .directiveDefinition = dd,
+                        };
+                    }
+                }
+                return null;
             },
             else => {
                 std.debug.print("warn: getItemDefinition not implemented arm", .{});

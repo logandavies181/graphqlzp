@@ -1,10 +1,12 @@
 pub const Document = struct {
+    directiveDefinitions: []DirectiveDef = &.{},
+    enums: []Enum = &.{},
+    inputs: []Input = &.{},
+    interfaces: []Interface = &.{},
     objects: []Object = &.{},
     scalars: []Scalar = &.{},
-    interfaces: []Interface = &.{},
     schema: Schema,
-
-    namedTypes: []NamedType = &.{},
+    unions: []Union = &.{},
 };
 
 pub const Schema = struct {
@@ -92,6 +94,9 @@ pub const Interface = struct {
 pub const Directive = struct {
     name: []const u8,
     args: ?[]Argument,
+
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const Enum = struct {
@@ -115,6 +120,9 @@ pub const DirectiveDef = struct {
     args: []ArgumentDefinition = &.{},
     repeatable: bool,
     locations: []DirectiveLocation,
+
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const DirectiveLocation = enum {

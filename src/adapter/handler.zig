@@ -41,6 +41,8 @@ fn keywordFromType(item: Locator.AstItem) ?[]const u8 {
         .namedType => unreachable,
         .interface => "interface",
         .fieldDefinition => null,
+        .directive => unreachable,
+        .directiveDefinition => "directive",
     };
 }
 
@@ -52,6 +54,8 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .namedType => unreachable,
         .interface => |_item| _item.name,
         .fieldDefinition => |_item| _item.field.name,
+        .directive => |_item| _item.name,
+        .directiveDefinition => |_item| _item.name,
     };
 }
 
@@ -60,9 +64,11 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
         .schema => |_item| _item.description,
         .scalar => |_item| _item.description,
         .object => |_item| _item.description,
-        .namedType => unreachable,
+        .namedType => unreachable, // expect resolved type instead
         .interface => |_item| _item.description,
         .fieldDefinition => |_item| _item.field.description,
+        .directive => unreachable, // expect resolved directive def
+        .directiveDefinition => |_item| _item.description,
     };
 }
 
@@ -191,6 +197,7 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
 
     const def = locator.getItemDefinition(item.?);
     if (def == null) {
+        std.debug.print("warn: definition not found\n", .{}); // TODO
         return null;
     }
 

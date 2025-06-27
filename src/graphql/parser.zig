@@ -194,10 +194,14 @@ pub const Parser = struct {
         }
 
         return .{
-            .objects = try objects.toOwnedSlice(),
+            .directiveDefinitions = try directiveDefs.toOwnedSlice(),
+            .enums = try enums.toOwnedSlice(),
+            .inputs = try inputs.toOwnedSlice(),
             .interfaces = try interfaces.toOwnedSlice(),
+            .objects = try objects.toOwnedSlice(),
             .scalars = try scalars.toOwnedSlice(),
             .schema = schema.?,
+            .unions = try unions.toOwnedSlice(),
         };
     }
 
@@ -935,6 +939,9 @@ pub const Parser = struct {
         return .{
             .name = name.value,
             .args = args,
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
     }
 
@@ -1017,6 +1024,9 @@ pub const Parser = struct {
             .args = args,
             .repeatable = repeatable,
             .locations = try locations.toOwnedSlice(),
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
     }
 
