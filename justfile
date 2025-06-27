@@ -12,7 +12,7 @@ alias t := test
 
 alias f := fmt
 @fmt:
-    zig fmt **/*.zig
+    zig fmt .
 
 @release:
     goreleaser release --clean

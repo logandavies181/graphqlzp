@@ -104,7 +104,12 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
     }
     const keyword = keywordFromType(def);
     if (keyword != null) {
-        try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, nameOf(def) }));
+        const name = switch (def) {
+            .directive, .directiveDefinition => try allocprint(self.alloc, "@{s}", .{nameOf(def)}),
+            else => nameOf(def),
+        };
+
+        try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, name }));
     } else {
         // assume it's a field
         const fld = def.fieldDefinition;

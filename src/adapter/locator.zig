@@ -153,7 +153,7 @@ const locatorBuilder = struct {
             // hackily include the preceding @
             .len = directiveDef.name.len + 1,
             .offset = directiveDef.offset - 1,
-            .lineNum = directiveDef.lineNum
+            .lineNum = directiveDef.lineNum,
         });
     }
 
@@ -194,7 +194,6 @@ const locatorBuilder = struct {
         }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
     }
 };
-
 
 pub const Locator = struct {
     locations: []location,
@@ -270,7 +269,7 @@ pub const Locator = struct {
                     // TODO: other types
 
                     else => {
-                        std.debug.print("warn: getItemDefinition.namedType not implemented arm", .{});
+                        std.debug.print("warn: getItemDefinition.namedType not implemented arm ", .{});
                         return null;
                     },
                 }
@@ -295,8 +294,13 @@ pub const Locator = struct {
                 }
                 return null;
             },
+            .directiveDefinition => |dd| {
+                return .{
+                    .directiveDefinition = dd,
+                };
+            },
             else => {
-                std.debug.print("warn: getItemDefinition not implemented arm", .{});
+                std.debug.print("warn: getItemDefinition not implemented arm ", .{});
                 return null;
             },
         }
