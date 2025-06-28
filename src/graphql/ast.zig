@@ -63,6 +63,7 @@ pub const Field = struct {
 
 pub const Input = struct {
     description: ?[]const u8 = null,
+    directives: []Directive = &.{},
     name: []const u8,
     inputFields: []InputField = &.{},
 

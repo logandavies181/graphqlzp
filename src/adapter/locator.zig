@@ -14,6 +14,8 @@ pub const AstItem = union(enum) {
     directive: ast.Directive,
     directiveDefinition: ast.DirectiveDef,
     argumentDefinition: ast.ArgumentDefinition,
+    input: ast.Input,
+    inputField: InputField,
 
     // TODO etc
 };
@@ -31,6 +33,11 @@ pub const Field = struct {
         type: ObjectType,
         name: []const u8,
     },
+};
+
+pub const InputField = struct {
+    field: ast.InputField,
+    parentName: []const u8,
 };
 
 pub const ObjectType = enum {
@@ -68,6 +75,8 @@ pub fn getItemLenAndPos(item: AstItem) struct { u64, lsp.types.Position } {
         .directive => |_item| _getItemLenAndPos(_item),
         .directiveDefinition => |_item| _getItemLenAndPos(_item),
         .argumentDefinition => |_item| _getItemLenAndPos(_item),
+        .input => |_item| _getItemLenAndPos(_item),
+        .inputField => |_item| _getItemLenAndPos(_item.field),
     };
 }
 
@@ -87,6 +96,13 @@ pub fn getTypeDefFromNamedType(doc: ast.Document, nt: ast.NamedType) ?AstItem {
         if (memeql(u8, scl.name, nt.name)) {
             return .{
                 .scalar = scl,
+            };
+        }
+    }
+    for (doc.inputs) |in| {
+        if (memeql(u8, in.name, nt.name)) {
+            return .{
+                .input = in,
             };
         }
     }
@@ -119,6 +135,8 @@ const locatorBuilder = struct {
                 .{ .object = obj }
             else if (ty == ast.Interface)
                 .{ .interface = obj }
+            else if (ty == ast.Input)
+                .{ .input = obj }
             else
                 return;
 
@@ -152,7 +170,7 @@ const locatorBuilder = struct {
 
     fn addFields(self: *locatorBuilder, ty: type, obj: ty) !void {
         if (ty == ast.Input) {
-            try self.addInputFields(obj.inputFields, ty, obj);
+            try self.addInputFields(obj.inputFields, obj);
         } else {
             try self.addFieldDefinitions(obj.fields, ty, obj);
         }
@@ -213,12 +231,9 @@ const locatorBuilder = struct {
         for (fields) |fld| {
             try self.locations.append(.{
                 .item = .{
-                    .fieldDefinition = .{
+                    .inputField = .{
                         .field = fld,
-                        .parent = .{
-                            .type = .input,
-                            .name = parent.name,
-                        },
+                        .parentName = parent.name,
                     },
                 },
                 .len = fld.name.len,
@@ -297,6 +312,7 @@ pub const Locator = struct {
             .namedType => |nt| {
                 const ty = getTypeDefFromNamedType(self.doc, nt);
                 if (ty == null) {
+                    std.debug.print("warn: getItemDefinition.namedType typedef not found\n", .{});
                     return null;
                 }
 
@@ -314,6 +330,11 @@ pub const Locator = struct {
                     .scalar => |scl| {
                         return .{
                             .scalar = scl,
+                        };
+                    },
+                    .input => |in| {
+                        return .{
+                            .input = in,
                         };
                     },
 
@@ -353,6 +374,16 @@ pub const Locator = struct {
             .argumentDefinition => |ad| {
                 return .{
                     .argumentDefinition = ad,
+                };
+            },
+            .input => |in| {
+                return .{
+                    .input = in,
+                };
+            },
+            .inputField => |inf| {
+                return .{
+                    .inputField = inf,
                 };
             },
             else => {

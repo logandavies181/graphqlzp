@@ -518,6 +518,7 @@ pub const Parser = struct {
         return .{
             .name = name.value,
             .inputFields = try fields.toOwnedSlice(),
+            .directives = directives,
 
             .offset = name.offset,
             .lineNum = name.lineNum,

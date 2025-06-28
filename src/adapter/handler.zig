@@ -44,6 +44,8 @@ fn keywordFromType(item: Locator.AstItem) ?[]const u8 {
         .directive => unreachable,
         .directiveDefinition => "directive",
         .argumentDefinition => null,
+        .input => "input",
+        .inputField => null,
     };
 }
 
@@ -58,6 +60,8 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .directive => |_item| _item.name,
         .directiveDefinition => |_item| _item.name,
         .argumentDefinition => |_item| _item.name,
+        .input => |_item| _item.name,
+        .inputField => |_item| _item.field.name,
     };
 }
 
@@ -72,6 +76,8 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
         .directive => unreachable, // expect resolved directive def
         .directiveDefinition => |_item| _item.description,
         .argumentDefinition => |_item| _item.description,
+        .input => |_item| _item.description,
+        .inputField => |_item| _item.field.description,
     };
 }
 
