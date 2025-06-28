@@ -43,6 +43,7 @@ fn keywordFromType(item: Locator.AstItem) ?[]const u8 {
         .fieldDefinition => null,
         .directive => unreachable,
         .directiveDefinition => "directive",
+        .argumentDefinition => null,
     };
 }
 
@@ -56,6 +57,7 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .fieldDefinition => |_item| _item.field.name,
         .directive => |_item| _item.name,
         .directiveDefinition => |_item| _item.name,
+        .argumentDefinition => |_item| _item.name,
     };
 }
 
@@ -69,6 +71,7 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
         .fieldDefinition => |_item| _item.field.description,
         .directive => unreachable, // expect resolved directive def
         .directiveDefinition => |_item| _item.description,
+        .argumentDefinition => |_item| _item.description,
     };
 }
 
@@ -111,14 +114,25 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
 
         try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, name }));
     } else {
-        // assume it's a field
-        const fld = def.fieldDefinition;
-        const parentKw = switch (fld.parent.type) {
-            .object => "type",
-            .interface => "interface",
-        };
-        try content
-            .appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try formatArgDefs(self.alloc, fld.field.args), try formatTypeRef(self.alloc, fld.field.type) }));
+        switch (def) {
+            .fieldDefinition => |fld| {
+                const parentKw = switch (fld.parent.type) {
+                    .object => "type",
+                    .interface => "interface",
+                    .input => "input",
+                };
+                try content
+                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try formatArgDefs(self.alloc, fld.field.args), try formatTypeRef(self.alloc, fld.field.type) }));
+            },
+            .argumentDefinition => |ad| {
+                try content
+                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s}: {s}\n```", .{ ad.name, try formatTypeRef(self.alloc, ad.ty) }));
+            },
+            else => {
+                std.debug.print("warn: unreachable arm rendering hover\n", .{});
+                return null;
+            },
+        }
     }
 
     return .{

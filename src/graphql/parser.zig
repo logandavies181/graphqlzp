@@ -896,6 +896,9 @@ pub const Parser = struct {
             .name = name.value,
             .ty = ty,
             .default = default,
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
     }
 

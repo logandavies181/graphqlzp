@@ -13,6 +13,7 @@ pub const AstItem = union(enum) {
     fieldDefinition: Field,
     directive: ast.Directive,
     directiveDefinition: ast.DirectiveDef,
+    argumentDefinition: ast.ArgumentDefinition,
 
     // TODO etc
 };
@@ -35,6 +36,7 @@ pub const Field = struct {
 pub const ObjectType = enum {
     object,
     interface,
+    input,
 };
 
 fn _getItemLenAndPos(item: anytype) struct { u64, lsp.types.Position } {
@@ -65,6 +67,7 @@ pub fn getItemLenAndPos(item: AstItem) struct { u64, lsp.types.Position } {
         },
         .directive => |_item| _getItemLenAndPos(_item),
         .directiveDefinition => |_item| _getItemLenAndPos(_item),
+        .argumentDefinition => |_item| _getItemLenAndPos(_item),
     };
 }
 
@@ -121,14 +124,16 @@ const locatorBuilder = struct {
 
         try self.locations.append(.{ .item = item, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
 
-        for (obj.implements) |impl| {
-            try self.locations.append(.{ .item = .{
-                .namedType = impl,
-            }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
+        if (ty != ast.Input) {
+            for (obj.implements) |impl| {
+                try self.locations.append(.{ .item = .{
+                    .namedType = impl,
+                }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
+            }
         }
 
         try self.addDirectives(obj);
-        try self.addFieldDefinitions(obj.fields, ty, obj);
+        try self.addFields(ty, obj);
     }
 
     fn addDirectives(self: *locatorBuilder, obj: anytype) !void {
@@ -142,6 +147,14 @@ const locatorBuilder = struct {
                 .offset = dr.offset - 1,
                 .lineNum = dr.lineNum,
             });
+        }
+    }
+
+    fn addFields(self: *locatorBuilder, ty: type, obj: ty) !void {
+        if (ty == ast.Input) {
+            try self.addInputFields(obj.inputFields, ty, obj);
+        } else {
+            try self.addFieldDefinitions(obj.fields, ty, obj);
         }
     }
 
@@ -180,11 +193,45 @@ const locatorBuilder = struct {
             }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
 
             for (fld.args) |arg| {
+                try self.locations.append(.{
+                    .item = .{
+                        .argumentDefinition = arg,
+                    }, .len = arg.name.len, .offset = arg.offset, .lineNum = arg.lineNum,
+                });
+
                 const _nt = getNamedTypeFromTypeRef(arg.ty);
                 try self.locations.append(.{ .item = .{
                     .namedType = _nt,
                 }, .len = _nt.name.len, .offset = _nt.offset, .lineNum = _nt.lineNum });
             }
+
+            try self.addDirectives(fld);
+        }
+    }
+
+    fn addInputFields(self: *locatorBuilder, fields: []ast.InputField, parent: ast.Input) !void {
+        for (fields) |fld| {
+            try self.locations.append(.{
+                .item = .{
+                    .fieldDefinition = .{
+                        .field = fld,
+                        .parent = .{
+                            .type = .input,
+                            .name = parent.name,
+                        },
+                    },
+                },
+                .len = fld.name.len,
+                .offset = fld.offset,
+                .lineNum = fld.lineNum,
+            });
+
+            const nt = getNamedTypeFromTypeRef(fld.type);
+            try self.locations.append(.{ .item = .{
+                .namedType = nt,
+            }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
+
+            try self.addDirectives(fld);
         }
     }
 
@@ -209,6 +256,10 @@ pub const Locator = struct {
 
         for (doc.scalars) |item| {
             try lb.addScalar(item);
+        }
+
+        for (doc.inputs) |item| {
+            try lb.addObject(ast.Input, item);
         }
 
         for (doc.interfaces) |item| {
@@ -269,7 +320,7 @@ pub const Locator = struct {
                     // TODO: other types
 
                     else => {
-                        std.debug.print("warn: getItemDefinition.namedType not implemented arm ", .{});
+                        std.debug.print("warn: getItemDefinition.namedType not implemented arm\n", .{});
                         return null;
                     },
                 }
@@ -299,8 +350,13 @@ pub const Locator = struct {
                     .directiveDefinition = dd,
                 };
             },
+            .argumentDefinition => |ad| {
+                return .{
+                    .argumentDefinition = ad,
+                };
+            },
             else => {
-                std.debug.print("warn: getItemDefinition not implemented arm ", .{});
+                std.debug.print("warn: getItemDefinition not implemented arm\n", .{});
                 return null;
             },
         }

@@ -170,6 +170,9 @@ pub const ArgumentDefinition = struct {
     name: []const u8,
     ty: TypeRef,
     default: ?Value,
+
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const Scalar = struct {
