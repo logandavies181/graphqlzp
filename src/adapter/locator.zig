@@ -214,7 +214,10 @@ const locatorBuilder = struct {
                 try self.locations.append(.{
                     .item = .{
                         .argumentDefinition = arg,
-                    }, .len = arg.name.len, .offset = arg.offset, .lineNum = arg.lineNum,
+                    },
+                    .len = arg.name.len,
+                    .offset = arg.offset,
+                    .lineNum = arg.lineNum,
                 });
 
                 const _nt = getNamedTypeFromTypeRef(arg.ty);
