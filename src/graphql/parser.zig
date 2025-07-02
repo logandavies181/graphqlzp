@@ -917,7 +917,7 @@ pub const Parser = struct {
                 .at => {
                     try directives.append(try self.parseDirective());
                 },
-                .lbrack, .lparen, .identifier, .equals, .rbrack => break,
+                .lbrack, .lparen, .identifier, .equals, .rbrack, .string => break,
                 else => return Error.badParse,
             }
         }

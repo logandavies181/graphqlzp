@@ -31,7 +31,10 @@ type Bar {
     """
     Other type of block comment
     """
-    zar: Zaz
+    zar: Zaz @gooberWithArgs(listArg: ["one", "two", "three"], nonNullArg: "foo")
+
+    "Parsing directives can finish with a docstring"
+    zar2: Zaz
 
     # Underscores are valid in names
     _foo_bar: _foo_bar
@@ -49,7 +52,7 @@ interface Face {
     zar: Zaz
 }
 
-interface OtherFace implements Face @goober {
+interface OtherFace implements Face @gooberRepeatable @gooberRepeatable {
     zar: Zaz
 }
 
@@ -78,6 +81,8 @@ directive @goober on FIELD_DEFINITION
   | ENUM_VALUE
   | INTERFACE
   | UNION
+
+directive @gooberRepeatable repeatable on OBJECT
 
 directive @gooberWithArgs(arg: String, listArg: [String], nonNullArg: String!) on SCALAR
 
