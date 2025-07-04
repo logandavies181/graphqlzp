@@ -276,6 +276,8 @@ const locatorBuilder = struct {
         try self.locations.append(.{ .item = .{
             .scalar = item,
         }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+
+        try self.addDirectives(item);
     }
 
     fn addEnum(self: *locatorBuilder, item: ast.Enum) !void {
@@ -353,60 +355,40 @@ pub const Locator = struct {
     }
 
     pub fn getItemDefinition(self: Locator, item: AstItem) ?AstItem {
-        switch (item) {
-            .object => |obj| {
-                return .{
-                    .object = obj,
-                };
-            },
-            .namedType => |nt| {
+        return switch (item) {
+            .argumentDefinition,
+            .directiveDefinition,
+            .enum_,
+            .enumValue,
+            .fieldDefinition,
+            .input,
+            .inputField,
+            .interface,
+            .object,
+            .scalar,
+            .union_,
+            => item,
+            .namedType => |nt| blk: {
                 const ty = getTypeDefFromNamedType(self.doc, nt);
                 if (ty == null) {
                     std.debug.print("warn: getItemDefinition.namedType typedef not found\n", .{});
                     return null;
                 }
 
-                switch (ty.?) {
-                    .object => |obj| {
-                        return .{
-                            .object = obj,
-                        };
-                    },
-                    .interface => |ifce| {
-                        return .{
-                            .interface = ifce,
-                        };
-                    },
-                    .scalar => |scl| {
-                        return .{
-                            .scalar = scl,
-                        };
-                    },
-                    .input => |in| {
-                        return .{
-                            .input = in,
-                        };
-                    },
-                    .union_ => return ty.?,
-                    .enum_ => return ty.?,
-                    .enumValue => return ty.?,
-
-                    // TODO: other types
+                break :blk switch (ty.?) {
+                    .enum_,
+                    .enumValue,
+                    .interface,
+                    .input,
+                    .object,
+                    .scalar,
+                    .union_,
+                    => ty.?,
 
                     else => {
                         std.debug.print("warn: getItemDefinition.namedType not implemented arm\n", .{});
                         return null;
                     },
-                }
-            },
-            .interface => |ifce| {
-                return .{
-                    .interface = ifce,
-                };
-            },
-            .fieldDefinition => |fd| {
-                return .{
-                    .fieldDefinition = fd,
                 };
             },
             .directive => |dr| {
@@ -419,34 +401,11 @@ pub const Locator = struct {
                 }
                 return null;
             },
-            .directiveDefinition => |dd| {
-                return .{
-                    .directiveDefinition = dd,
-                };
-            },
-            .argumentDefinition => |ad| {
-                return .{
-                    .argumentDefinition = ad,
-                };
-            },
-            .input => |in| {
-                return .{
-                    .input = in,
-                };
-            },
-            .inputField => |inf| {
-                return .{
-                    .inputField = inf,
-                };
-            },
-            .union_ => return item,
-            .enum_ => return item,
-            .enumValue => return item,
-            else => {
+            else => blk: {
                 std.debug.print("warn: getItemDefinition not implemented arm\n", .{});
-                return null;
+                break :blk null;
             },
-        }
+        };
     }
 
     fn overlaps(loc: location, offset: u64, lineNum: u64) bool {
