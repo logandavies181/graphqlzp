@@ -46,6 +46,9 @@ fn keywordFromType(item: Locator.AstItem) ?[]const u8 {
         .argumentDefinition => null,
         .input => "input",
         .inputField => null,
+        .enum_ => "enum",
+        .enumValue => null,
+        .union_ => "union",
     };
 }
 
@@ -62,6 +65,9 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .argumentDefinition => |_item| _item.name,
         .input => |_item| _item.name,
         .inputField => |_item| _item.field.name,
+        .enum_ => |_item| _item.name,
+        .enumValue => |_item| _item.name,
+        .union_ => |_item| _item.name,
     };
 }
 
@@ -78,6 +84,9 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
         .argumentDefinition => |_item| _item.description,
         .input => |_item| _item.description,
         .inputField => |_item| _item.field.description,
+        .enum_ => |_item| _item.description,
+        .enumValue => |_item| _item.description,
+        .union_ => |_item| _item.description,
     };
 }
 

@@ -16,7 +16,9 @@ pub const AstItem = union(enum) {
     argumentDefinition: ast.ArgumentDefinition,
     input: ast.Input,
     inputField: InputField,
-
+    enum_: ast.Enum,
+    enumValue: ast.EnumValue,
+    union_: ast.Union,
     // TODO etc
 };
 
@@ -77,6 +79,9 @@ pub fn getItemLenAndPos(item: AstItem) struct { u64, lsp.types.Position } {
         .argumentDefinition => |_item| _getItemLenAndPos(_item),
         .input => |_item| _getItemLenAndPos(_item),
         .inputField => |_item| _getItemLenAndPos(_item.field),
+        .enum_ => |_item| _getItemLenAndPos(_item),
+        .enumValue => |_item| _getItemLenAndPos(_item),
+        .union_ => |_item| _getItemLenAndPos(_item),
     };
 }
 
@@ -103,6 +108,20 @@ pub fn getTypeDefFromNamedType(doc: ast.Document, nt: ast.NamedType) ?AstItem {
         if (memeql(u8, in.name, nt.name)) {
             return .{
                 .input = in,
+            };
+        }
+    }
+    for (doc.enums) |en| {
+        if (memeql(u8, en.name, nt.name)) {
+            return .{
+                .enum_ = en,
+            };
+        }
+    }
+    for (doc.unions) |un| {
+        if (memeql(u8, un.name, nt.name)) {
+            return .{
+                .union_ = un,
             };
         }
     }
@@ -258,6 +277,34 @@ const locatorBuilder = struct {
             .scalar = item,
         }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
     }
+
+    fn addEnum(self: *locatorBuilder, item: ast.Enum) !void {
+        try self.locations.append(.{ .item = .{
+            .enum_ = item,
+        }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+
+        for (item.values) |val| {
+            try self.locations.append(.{ .item = .{
+                .enumValue = val,
+            }, .len = val.name.len, .offset = val.offset, .lineNum = val.lineNum });
+        }
+
+        try self.addDirectives(item);
+    }
+
+    fn addUnion(self: *locatorBuilder, item: ast.Union) !void {
+        try self.locations.append(.{ .item = .{
+            .union_ = item,
+        }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
+
+        for (item.types) |ty| {
+            try self.locations.append(.{ .item = .{
+                .namedType = ty,
+            }, .len = ty.name.len, .offset = ty.offset, .lineNum = ty.lineNum });
+        }
+
+        try self.addDirectives(item);
+    }
 };
 
 pub const Locator = struct {
@@ -271,24 +318,24 @@ pub const Locator = struct {
         for (doc.objects) |item| {
             try lb.addObject(ast.Object, item);
         }
-
         for (doc.scalars) |item| {
             try lb.addScalar(item);
         }
-
         for (doc.inputs) |item| {
             try lb.addObject(ast.Input, item);
         }
-
         for (doc.interfaces) |item| {
             try lb.addObject(ast.Interface, item);
         }
-
         for (doc.directiveDefinitions) |dd| {
             try lb.addDirectiveDefinitions(dd);
         }
-
-        //for (doc.unions) |item|
+        for (doc.enums) |en| {
+            try lb.addEnum(en);
+        }
+        for (doc.unions) |un| {
+            try lb.addUnion(un);
+        }
 
         return .{
             .locations = try locations.toOwnedSlice(),
@@ -340,6 +387,9 @@ pub const Locator = struct {
                             .input = in,
                         };
                     },
+                    .union_ => return ty.?,
+                    .enum_ => return ty.?,
+                    .enumValue => return ty.?,
 
                     // TODO: other types
 
@@ -389,6 +439,9 @@ pub const Locator = struct {
                     .inputField = inf,
                 };
             },
+            .union_ => return item,
+            .enum_ => return item,
+            .enumValue => return item,
             else => {
                 std.debug.print("warn: getItemDefinition not implemented arm\n", .{});
                 return null;

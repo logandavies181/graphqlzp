@@ -106,6 +106,9 @@ pub const Enum = struct {
 
     directives: []Directive = &.{},
     values: []EnumValue = &.{},
+
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const EnumValue = struct {
@@ -113,6 +116,9 @@ pub const EnumValue = struct {
     name: []const u8,
 
     directives: []Directive = &.{},
+
+    offset: u64,
+    lineNum: u64,
 };
 
 pub const DirectiveDef = struct {
@@ -191,4 +197,7 @@ pub const Union = struct {
     directives: []Directive = &.{},
 
     types: []NamedType = &.{},
+
+    offset: u64,
+    lineNum: u64,
 };

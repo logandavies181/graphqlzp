@@ -342,6 +342,8 @@ pub const Parser = struct {
                         .name = next.value,
                         .description = description,
                         .directives = memberDirectives,
+                        .offset = next.offset,
+                        .lineNum = next.lineNum,
                     });
                     description = null;
                 },
@@ -360,6 +362,9 @@ pub const Parser = struct {
             .name = name.value,
             .directives = directives,
             .values = try members.toOwnedSlice(),
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
     }
 
@@ -692,6 +697,9 @@ pub const Parser = struct {
             .name = name.value,
             .directives = directives,
             .types = try members.toOwnedSlice(),
+
+            .offset = name.offset,
+            .lineNum = name.lineNum,
         };
     }
 
