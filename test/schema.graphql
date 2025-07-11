@@ -43,7 +43,11 @@ type Bar {
 scalar _foo_bar @gooberWithArgs(listArg: ["one", "two", "three"], nonNullArg: "foo")
 
 input InBar {
+    "first"
     zar: Zaz
+    "second"
+    zig: Zaz
+    zag: Zaz
 }
 
 scalar Zaz @specifiedBy(url: "https://example.com/foo")
@@ -61,9 +65,9 @@ type FooFace implements Face & OtherFace {
 }
 
 enum Choices {
-    GOOD @goober,
-    BAD,
-    UGLY,
+    GOOD @goober
+    BAD
+    UGLY
 }
 
 # Directive definitions and unions need to keep reading until the next definition

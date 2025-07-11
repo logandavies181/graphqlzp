@@ -513,7 +513,9 @@ pub const Parser = struct {
                     }
                 },
                 .identifier => {
-                    const fld = try self.parseInputFieldDef(_next);
+                    var fld = try self.parseInputFieldDef(_next);
+                    fld.description = desc;
+                    desc = null;
                     try fields.append(fld);
                 },
                 else => return Error.badParse,
