@@ -175,6 +175,7 @@ pub const Argument = struct {
 pub const ArgumentDefinition = struct {
     description: ?[]const u8 = null,
     name: []const u8,
+    directives: []Directive = &.{},
     ty: TypeRef,
     default: ?Value,
 

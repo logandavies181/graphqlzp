@@ -875,6 +875,12 @@ pub const Parser = struct {
                     var next = try self.parseArgumentDefinition();
                     next.description = description;
                     description = null;
+
+                    const npeeked = self.iter.peekNextMeaningful();
+                    if (npeeked != null and npeeked.?.kind == .at) {
+                        next.directives = try self.parseDirectives();
+                    }
+
                     try args.append(next);
                 },
                 .string => {
@@ -927,7 +933,7 @@ pub const Parser = struct {
                 .at => {
                     try directives.append(try self.parseDirective());
                 },
-                .lbrack, .lparen, .identifier, .equals, .rbrack, .string => break,
+                .lbrack, .lparen, .identifier, .equals, .rbrack, .rparen, .string => break,
                 else => return Error.badParse,
             }
         }

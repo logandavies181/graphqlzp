@@ -16,6 +16,7 @@ type Query @goober {
     listNonNullFoo: [Bar!]
     nonNullListNonNullFoo: [Bar!]!
     fooWithArgs("args can have docstrings" in: InBar, listIn: [InBar]): Bar
+    fooWithDirectiveArg(foo: Bar @goober): Bar
 }
 
 type Mutation {
@@ -85,6 +86,7 @@ directive @goober on FIELD_DEFINITION
   | ENUM_VALUE
   | INTERFACE
   | UNION
+  | ARGUMENT_DEFINITION
 
 directive @gooberRepeatable repeatable on OBJECT
 
