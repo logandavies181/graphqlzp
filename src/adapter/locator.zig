@@ -154,7 +154,9 @@ const locatorBuilder = struct {
                 .item = .{
                     .namedType = _nt,
                 },
-                .offset = _nt.offset, .lineNum = _nt.lineNum, .len = _nt.name.len,
+                .offset = _nt.offset,
+                .lineNum = _nt.lineNum,
+                .len = _nt.name.len,
             });
         }
     }
