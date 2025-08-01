@@ -584,33 +584,41 @@ pub const Parser = struct {
                     const fld = try self.parseFieldDef(next, desc);
                     desc = null;
 
+                    // Only NamedType is allowed
+                    const ty = switch (fld.type) {
+                        .namedType => |nt| nt,
+                        .listType => {
+                            return Error.badParse;
+                        },
+                    };
+
                     const memeql = std.mem.eql;
                     if (memeql(u8, opname, "query")) {
                         if (query != null) {
                             return Error.badParse;
                         }
                         query = .{
-                            .name = fld.name,
-                            .offset = fld.offset,
-                            .lineNum = fld.lineNum,
+                            .name = ty.name,
+                            .offset = ty.offset,
+                            .lineNum = ty.lineNum,
                         };
                     } else if (memeql(u8, opname, "mutation")) {
                         if (mutation != null) {
                             return Error.badParse;
                         }
                         mutation = .{
-                            .name = fld.name,
-                            .offset = fld.offset,
-                            .lineNum = fld.lineNum,
+                            .name = ty.name,
+                            .offset = ty.offset,
+                            .lineNum = ty.lineNum,
                         };
                     } else if (memeql(u8, opname, "subscription")) {
                         if (subscription != null) {
                             return Error.badParse;
                         }
                         subscription = .{
-                            .name = fld.name,
-                            .offset = fld.offset,
-                            .lineNum = fld.lineNum,
+                            .name = ty.name,
+                            .offset = ty.offset,
+                            .lineNum = ty.lineNum,
                         };
                     } else {
                         return Error.badParse;

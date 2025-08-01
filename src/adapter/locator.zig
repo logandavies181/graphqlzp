@@ -148,6 +148,24 @@ const locatorBuilder = struct {
         };
     }
 
+    fn addNamedType(self: *locatorBuilder, nt: ?ast.NamedType) !void {
+        if (nt) |_nt| {
+            try self.locations.append(.{
+                .item = .{
+                    .namedType = _nt,
+                },
+                .offset = _nt.offset, .lineNum = _nt.lineNum, .len = _nt.name.len,
+            });
+        }
+    }
+
+    fn addSchema(self: *locatorBuilder, sch: ast.Schema) !void {
+        try self.addDirectives(sch);
+        try self.addNamedType(sch.query);
+        try self.addNamedType(sch.mutation);
+        try self.addNamedType(sch.subscription);
+    }
+
     fn addObject(self: *locatorBuilder, ty: type, obj: ty) !void {
         const item: AstItem =
             if (ty == ast.Object)
@@ -317,6 +335,7 @@ pub const Locator = struct {
         var locations = std.ArrayList(location).init(alloc);
         var lb = locatorBuilder.init(&locations);
 
+        try lb.addSchema(doc.schema);
         for (doc.objects) |item| {
             try lb.addObject(ast.Object, item);
         }
