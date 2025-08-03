@@ -29,6 +29,7 @@ pub fn handler(self: *Handler) _handler {
         .vtable = &.{
             .hover = hover,
             .gotoDefinition = gotoDefinition,
+            .gotoImplementation = gotoImplementation,
             .references = references,
         },
     };
@@ -265,6 +266,16 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
     };
 }
 
+const matcher = struct {
+    n: []const u8,
+    fn m(self_: @This(), item_: Locator.AstItem) bool {
+        return std.mem.eql(u8, self_.n, nameOf(item_));
+    }
+    fn str(self_: @This(), item_: []const u8) bool {
+        return std.mem.eql(u8, self_.n, item_);
+    }
+};
+
 fn references(_self: *anyopaque, params: lsp.types.ReferenceParams) Error!?[]lsp.types.Location {
     return tryReferences(_self, params) catch |err| {
         std.debug.print("got error: {any}", .{err});
@@ -285,12 +296,6 @@ fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.t
 
     const itemName = nameOf(item.?);
 
-    const matcher = struct {
-        n: []const u8,
-        fn m(self_: @This(), item_: Locator.AstItem) bool {
-            return std.mem.eql(u8, self_.n, nameOf(item_));
-        }
-    };
     const matches = matcher{ .n = itemName, };
 
     var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
@@ -309,4 +314,45 @@ fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.t
     }
 
     return try locs.toOwnedSlice();
+}
+
+fn gotoImplementation(_self: *anyopaque, params: lsp.types.ImplementationParams) Error!lsp.ResultType("textDocument/implementation") {
+    return tryGotoImplementation(_self, params) catch |err| {
+        std.debug.print("got error: {any}", .{err});
+        return Error.InternalError;
+    };
+}
+
+fn tryGotoImplementation(_self: *anyopaque, params: lsp.types.ImplementationParams) !lsp.ResultType("textDocument/implementation") {
+    const self: *Handler = @ptrCast(@alignCast(_self));
+
+    const doc, const locator = try self.getDocAndLocator(params.textDocument.uri);
+
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found in locator\n", .{}); // TODO
+        return null;
+    }
+
+    const itemName = nameOf(item.?);
+
+    const matches = matcher{ .n = itemName, };
+
+    var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
+    for (doc.objects) |obj| {
+        for (obj.implements) |impl| {
+            if (matches.str(impl.name)) {
+                try locs.append(.{
+                    .uri = params.textDocument.uri,
+                    .range = rangeOf(.{ .object = obj }),
+                });
+            }
+        }
+    }
+
+    return .{
+        .Definition = .{
+            .array_of_Location = try locs.toOwnedSlice(),
+        },
+    };
 }
