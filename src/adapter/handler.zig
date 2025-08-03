@@ -339,12 +339,33 @@ fn tryGotoImplementation(_self: *anyopaque, params: lsp.types.ImplementationPara
     const matches = matcher{ .n = itemName, };
 
     var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
+
+    switch (item.?) {
+        .object, .interface => {
+            try locs.append(.{
+                .uri = params.textDocument.uri,
+                .range = rangeOf(item.?),
+            });
+        },
+        else => {},
+    }
+
     for (doc.objects) |obj| {
         for (obj.implements) |impl| {
             if (matches.str(impl.name)) {
                 try locs.append(.{
                     .uri = params.textDocument.uri,
                     .range = rangeOf(.{ .object = obj }),
+                });
+            }
+        }
+    }
+    for (doc.interfaces) |ifce| {
+        for (ifce.implements) |impl| {
+            if (matches.str(impl.name)) {
+                try locs.append(.{
+                    .uri = params.textDocument.uri,
+                    .range = rangeOf(.{ .interface = ifce }),
                 });
             }
         }
