@@ -58,7 +58,7 @@ fn nameOf(item: Locator.AstItem) []const u8 {
         .schema => "schema",
         .scalar => |_item| _item.name,
         .object => |_item| _item.name,
-        .namedType => unreachable,
+        .namedType => |_item| _item.name,
         .interface => |_item| _item.name,
         .fieldDefinition => |_item| _item.field.name,
         .directive => |_item| _item.name,
@@ -272,16 +272,11 @@ fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.t
         return null;
     }
 
-    switch (item.?) {
-        .namedType => {},
-        else => return null,
-    }
-
     var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
     for (locator.locations) |loc| {
         switch (loc.item) {
             .namedType => |nt| {
-                if (std.mem.eql(u8, item.?.namedType.name, nt.name)) {
+                if (std.mem.eql(u8, nameOf(item.?), nt.name)) {
                     const len, const pos = Locator.getItemLenAndPos(loc.item);
                     try locs.append(.{
                         .uri = params.textDocument.uri,
