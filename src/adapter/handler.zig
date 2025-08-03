@@ -29,6 +29,7 @@ pub fn handler(self: *Handler) _handler {
         .vtable = &.{
             .hover = hover,
             .gotoDefinition = gotoDefinition,
+            .references = references,
         },
     };
 }
@@ -251,4 +252,52 @@ fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp
             },
         },
     };
+}
+
+fn references(_self: *anyopaque, params: lsp.types.ReferenceParams) Error!?[]lsp.types.Location {
+    return tryReferences(_self, params) catch |err| {
+        std.debug.print("got error: {any}", .{err});
+        return Error.InternalError;
+    };
+}
+
+fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.types.Location {
+    const self: *Handler = @ptrCast(@alignCast(_self));
+
+    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
+
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found in locator\n", .{}); // TODO
+        return null;
+    }
+
+    switch (item.?) {
+        .namedType => {},
+        else => return null,
+    }
+
+    var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
+    for (locator.locations) |loc| {
+        switch (loc.item) {
+            .namedType => |nt| {
+                if (std.mem.eql(u8, item.?.namedType.name, nt.name)) {
+                    const len, const pos = Locator.getItemLenAndPos(loc.item);
+                    try locs.append(.{
+                        .uri = params.textDocument.uri,
+                        .range = .{
+                            .start = pos,
+                            .end = .{
+                                .line = @intCast(pos.line),
+                                .character = @intCast(pos.character + len),
+                            },
+                        },
+                    });
+                }
+            },
+            else => continue,
+        }
+    }
+
+    return null;
 }

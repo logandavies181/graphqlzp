@@ -56,6 +56,17 @@ pub const Parser = struct {
     alloc: std.mem.Allocator,
     iter: Iterator,
 
+    _err: []const u8 = &.{},
+
+    fn badParse(self: *Parser, message: []const u8) Error {
+        return self.err(message, Error.badParse);
+    }
+
+    fn err(self: *Parser, message: []const u8, e: Error) Error {
+        self._err = message;
+        return e;
+    }
+
     pub fn create(alloc: std.mem.Allocator, tokens: []Token) Parser {
         return .{
             .alloc = alloc,
@@ -116,7 +127,7 @@ pub const Parser = struct {
                         },
                         .schema => {
                             if (schema != null) {
-                                return Error.badParse;
+                                return self.badParse("duplicate schema found");
                             }
 
                             schema = try self.parseSchema(next.offset, next.lineNum);
@@ -135,14 +146,16 @@ pub const Parser = struct {
                             desc = null;
                             try unions.append(item);
                         },
-                        else => return Error.badParse,
+                        else => {
+                            return self.badParse("unknown keyword");
+                        },
                     }
                 },
                 .string => {
                     if (desc == null) {
                         desc = next.value;
                     } else {
-                        return Error.badParse;
+                        return self.badParse("unexpected string");
                     }
                 },
                 .comma => _ = void,
@@ -183,7 +196,7 @@ pub const Parser = struct {
             }
 
             if (query == null) {
-                return Error.noSchema;
+                return self.badParse("no Query defined");
             }
 
             schema = .{
@@ -206,13 +219,13 @@ pub const Parser = struct {
     }
 
     pub fn parse(self: *Parser) !Document {
-        return self.tryParse() catch |err|
-            switch (err) {
+        return self.tryParse() catch |e|
+            switch (e) {
                 Error.badParse, Error.todo, Error.notImplemented => blk: {
                     const _curr = self.iter.next();
                     if (_curr != null) {
                         const curr = _curr.?;
-                        std.debug.print("\n{any} at line: {d}, offset: {d}. Found: {s}\n", .{ err, curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
+                        std.debug.print("\n{any} at line: {d}, offset: {d}. Found: {s}\n", .{ e, curr.lineNum + 1, curr.offset, @tagName(curr.kind) });
                     } else {
                         if (self.iter.tokens.len == 0) {
                             std.debug.print("No tokens\n", .{});
@@ -220,15 +233,15 @@ pub const Parser = struct {
                             std.debug.print("Probably last token\n", .{});
                         }
                     }
-                    break :blk err;
+                    break :blk e;
                 },
                 Error.noSchema => blk: {
                     std.debug.print("Failed validation - no schema\n", .{});
-                    break :blk err;
+                    break :blk e;
                 },
                 else => blk: {
-                    std.debug.print("unknown error: {any}\n", .{err});
-                    break :blk err;
+                    std.debug.print("unknown error: {any}\n", .{e});
+                    break :blk e;
                 },
             };
     }
@@ -1011,11 +1024,11 @@ pub const Parser = struct {
         var locations = std.ArrayList(DirectiveLocation).init(self.alloc);
         var lastWasBar = true;
         while (true) {
-            const _next = self.iter.nextMeaningful() catch |err| {
-                if (err == Error.noneNext) {
+            const _next = self.iter.nextMeaningful() catch |e| {
+                if (e == Error.noneNext) {
                     break;
                 } else {
-                    return err;
+                    return e;
                 }
             };
             switch (_next.kind) {
