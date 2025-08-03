@@ -299,5 +299,5 @@ fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.t
         }
     }
 
-    return null;
+    return try locs.toOwnedSlice();
 }
