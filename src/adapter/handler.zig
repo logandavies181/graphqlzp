@@ -91,6 +91,17 @@ fn descriptionOf(item: Locator.AstItem) ?[]const u8 {
     };
 }
 
+fn rangeOf(item: Locator.AstItem) lsp.types.Range {
+    const len, const pos = Locator.getItemLenAndPos(item);
+    return .{
+        .start = pos,
+        .end = .{
+            .line = @intCast(pos.line),
+            .character = @intCast(pos.character + len),
+        },
+    };
+}
+
 fn hover(_self: *anyopaque, params: lsp.types.HoverParams) Error!?lsp.types.Hover {
     return tryHover(_self, params) catch |err| {
         std.debug.print("got error: {any}", .{err});
@@ -272,21 +283,24 @@ fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.t
         return null;
     }
 
+    const itemName = nameOf(item.?);
+
+    const matcher = struct {
+        n: []const u8,
+        fn m(self_: @This(), item_: Locator.AstItem) bool {
+            return std.mem.eql(u8, self_.n, nameOf(item_));
+        }
+    };
+    const matches = matcher{ .n = itemName, };
+
     var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
     for (locator.locations) |loc| {
         switch (loc.item) {
-            .namedType => |nt| {
-                if (std.mem.eql(u8, nameOf(item.?), nt.name)) {
-                    const len, const pos = Locator.getItemLenAndPos(loc.item);
+            .object, .input, .interface, .namedType => {
+                if (matches.m(loc.item)) {
                     try locs.append(.{
                         .uri = params.textDocument.uri,
-                        .range = .{
-                            .start = pos,
-                            .end = .{
-                                .line = @intCast(pos.line),
-                                .character = @intCast(pos.character + len),
-                            },
-                        },
+                        .range = rangeOf(loc.item),
                     });
                 }
             },
