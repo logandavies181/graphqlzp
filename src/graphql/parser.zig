@@ -484,6 +484,8 @@ pub const Parser = struct {
             .fields = try fields.toOwnedSlice(),
             .directives = directives,
 
+            .implements = try implements.toOwnedSlice(),
+
             .offset = name.offset,
             .lineNum = name.lineNum,
         };
