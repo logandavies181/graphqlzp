@@ -68,7 +68,7 @@ const Tokenizer = struct {
     fn create(alloc: std.mem.Allocator, path: []const u8) !Tokenizer {
         const file = try std.fs.cwd().openFile(path, .{});
 
-        const buf = try file.readToEndAlloc(alloc, comptime 2<<22); // 4MiB
+        const buf = try file.readToEndAlloc(alloc, comptime 2 << 22); // 4MiB
 
         var view = try unicode.Utf8View.init(buf);
         const iter = view.iterator();

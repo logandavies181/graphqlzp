@@ -296,7 +296,9 @@ fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.t
 
     const itemName = nameOf(item.?);
 
-    const matches = matcher{ .n = itemName, };
+    const matches = matcher{
+        .n = itemName,
+    };
 
     var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
     for (locator.locations) |loc| {
@@ -336,7 +338,9 @@ fn tryGotoImplementation(_self: *anyopaque, params: lsp.types.ImplementationPara
 
     const itemName = nameOf(item.?);
 
-    const matches = matcher{ .n = itemName, };
+    const matches = matcher{
+        .n = itemName,
+    };
 
     var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
 
