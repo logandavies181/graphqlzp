@@ -558,10 +558,19 @@ pub const Parser = struct {
             directives = try self.parseDirectives();
         }
 
+        const next = self.iter.peekNextMeaningful();
+        var default: ?Value = null;
+        if (next != null and next.?.kind == .equals) {
+            _ = try self.iter.requireNextMeaningful(&.{.equals});
+
+            default = try self.parseValue();
+        }
+
         return .{
             .directives = directives,
             .name = name.value,
             .type = ty,
+            .default = default,
 
             .offset = name.offset,
             .lineNum = name.lineNum,

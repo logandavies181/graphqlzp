@@ -49,6 +49,7 @@ input InBar {
     "second"
     zig: Zaz
     zag: Zaz
+    defaulted: String = "this is a default value"
 }
 
 scalar Zaz @specifiedBy(url: "https://example.com/foo")

@@ -76,6 +76,7 @@ pub const InputField = struct {
     directives: []Directive = &.{},
     name: []const u8,
     type: TypeRef,
+    default: ?Value,
 
     offset: u64,
     lineNum: u64,
