@@ -3,6 +3,14 @@ const std = @import("std");
 const config = @import("config");
 
 const lsp = @import("lsp");
+const Error = lsp.types.ErrorCodes;
+
+const ast = @import("../graphql/ast.zig");
+const lexer = @import("../graphql/lexer.zig");
+const parser = @import("../graphql/parser.zig");
+const Locator = @import("locator.zig");
+
+const utils = @import("utils.zig");
 
 const Handler = @This();
 
@@ -65,4 +73,82 @@ pub fn onResponse(
     _: std.mem.Allocator,
     _: lsp.JsonRPCMessage.Response,
 ) void {
+}
+
+pub fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Locator.Locator } {
+    // trim file:// if present
+    const fname =
+        if (std.mem.eql(u8, furi[0..7], "file://"))
+            furi[6..]
+        else
+            furi;
+
+    const lexResult = try lexer.tokenize(self.alloc, fname);
+    // TODO memory mgmt
+
+    var _parser = parser.Parser.create(self.alloc, lexResult.tokens);
+    const doc = try _parser.parse();
+
+    const locator = try Locator.Locator.init(doc, self.alloc);
+
+    return .{ doc, locator };
+}
+
+// TODO mem
+pub fn @"textDocument/hover" (self: *Handler, _: std.mem.Allocator, params: lsp.types.HoverParams) !?lsp.types.Hover {
+    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
+
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found\n", .{}); // TODO
+        return null;
+    }
+
+    const def = locator.getItemDefinition(item.?) orelse {
+        return null;
+    };
+
+    // TODO: mem mgmt
+    var content = std.ArrayList(u8).init(self.alloc);
+    const allocprint = std.fmt.allocPrint;
+
+    const description = utils.descriptionOf(def);
+    if (description != null) {
+        try content.appendSlice(try allocprint(self.alloc, "{s}\n", .{description.?}));
+    }
+    const keyword = utils.keywordFromType(def);
+    if (keyword != null) {
+        const name = switch (def) {
+            .directive, .directiveDefinition => try allocprint(self.alloc, "@{s}", .{utils.nameOf(def)}),
+            else => utils.nameOf(def),
+        };
+
+        try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, name }));
+    } else {
+        switch (def) {
+            .fieldDefinition => |fld| {
+                const parentKw = switch (fld.parent.type) {
+                    .object => "type",
+                    .interface => "interface",
+                    .input => "input",
+                };
+                try content
+                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try utils.formatArgDefs(self.alloc, fld.field.args), try utils.formatTypeRef(self.alloc, fld.field.type) }));
+            },
+            .argumentDefinition => |ad| {
+                try content
+                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s}: {s}\n```", .{ ad.name, try utils.formatTypeRef(self.alloc, ad.ty) }));
+            },
+            else => {
+                std.debug.print("warn: unreachable arm rendering hover\n", .{});
+                return null;
+            },
+        }
+    }
+
+    return .{
+        .contents = .{
+            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice() },
+        },
+    };
 }
