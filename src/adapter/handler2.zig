@@ -38,6 +38,7 @@ pub fn initialize(
         .capabilities = .{
             .positionEncoding = .@"utf-8",
             .hoverProvider = .{ .bool = true },
+            .definitionProvider = .{ .bool = true },
             // TODO, other caps
         },
     };
@@ -109,12 +110,12 @@ pub fn @"textDocument/hover" (self: *Handler, _: std.mem.Allocator, params: lsp.
     };
 
     // TODO: mem mgmt
-    var content = std.ArrayList(u8).init(self.alloc);
+    var content = std.ArrayList(u8){};
     const allocprint = std.fmt.allocPrint;
 
     const description = utils.descriptionOf(def);
     if (description != null) {
-        try content.appendSlice(try allocprint(self.alloc, "{s}\n", .{description.?}));
+        try content.appendSlice(self.alloc, try allocprint(self.alloc, "{s}\n", .{description.?}));
     }
     const keyword = utils.keywordFromType(def);
     if (keyword != null) {
@@ -123,7 +124,7 @@ pub fn @"textDocument/hover" (self: *Handler, _: std.mem.Allocator, params: lsp.
             else => utils.nameOf(def),
         };
 
-        try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, name }));
+        try content.appendSlice(self.alloc, try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, name }));
     } else {
         switch (def) {
             .fieldDefinition => |fld| {
@@ -133,11 +134,11 @@ pub fn @"textDocument/hover" (self: *Handler, _: std.mem.Allocator, params: lsp.
                     .input => "input",
                 };
                 try content
-                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try utils.formatArgDefs(self.alloc, fld.field.args), try utils.formatTypeRef(self.alloc, fld.field.type) }));
+                    .appendSlice(self.alloc, try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try utils.formatArgDefs(self.alloc, fld.field.args), try utils.formatTypeRef(self.alloc, fld.field.type) }));
             },
             .argumentDefinition => |ad| {
                 try content
-                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s}: {s}\n```", .{ ad.name, try utils.formatTypeRef(self.alloc, ad.ty) }));
+                    .appendSlice(self.alloc, try allocprint(self.alloc, "```graphql\n{s}: {s}\n```", .{ ad.name, try utils.formatTypeRef(self.alloc, ad.ty) }));
             },
             else => {
                 std.debug.print("warn: unreachable arm rendering hover\n", .{});
@@ -148,7 +149,74 @@ pub fn @"textDocument/hover" (self: *Handler, _: std.mem.Allocator, params: lsp.
 
     return .{
         .contents = .{
-            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice() },
+            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice(self.alloc) },
         },
     };
 }
+
+pub fn @"textDocument/definition" (self: *Handler, _: std.mem.Allocator, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
+    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
+
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found in locator\n", .{}); // TODO
+        return null;
+    }
+
+    const def = locator.getItemDefinition(item.?);
+    if (def == null) {
+        std.debug.print("warn: definition not found\n", .{}); // TODO
+        return null;
+    }
+
+    const len, const pos = Locator.getItemLenAndPos(def.?);
+
+    return .{
+        .Definition = .{
+            .Location = .{
+                .uri = params.textDocument.uri,
+                .range = .{
+                    .start = pos,
+                    .end = .{
+                        .line = @intCast(pos.line),
+                        .character = @intCast(pos.character + len),
+                    },
+                },
+            },
+        },
+    };
+}
+
+// pub fn @"textDocument/references" (self: *Handler, _: std.mem.Allocator, params: lsp.types.ReferenceParams) !?[]lsp.types.Location {
+//     _, const locator = try self.getDocAndLocator(params.textDocument.uri);
+//
+//     const item = locator.getItemAt(params.position.character, params.position.line);
+//     if (item == null) {
+//         std.debug.print("nothing found in locator\n", .{}); // TODO
+//         return null;
+//     }
+//
+//     const itemName = utils.nameOf(item.?);
+//
+//     const matches = utils.matcher{
+//         .n = itemName,
+//     };
+//
+//     var locs = std.ArrayList(lsp.types.Location){};
+//     for (locator.locations) |loc| {
+//         switch (loc.item) {
+//             .object, .input, .interface, .namedType => {
+//                 if (matches.m(loc.item)) {
+//                     try locs.append(self.alloc, .{
+//                         .uri = params.textDocument.uri,
+//                         .range = utils.rangeOf(loc.item),
+//                     });
+//                 }
+//             },
+//             else => continue,
+//         }
+//     }
+//
+//     const _locs = try locs.toOwnedSlice(self.alloc);
+//     return @constCast(_locs);
+// }

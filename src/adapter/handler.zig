@@ -121,50 +121,6 @@ fn gotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) Error!l
 }
 
 
-fn tryGotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
-    const self: *Handler = @ptrCast(@alignCast(_self));
-
-    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
-
-    const item = locator.getItemAt(params.position.character, params.position.line);
-    if (item == null) {
-        std.debug.print("nothing found in locator\n", .{}); // TODO
-        return null;
-    }
-
-    const def = locator.getItemDefinition(item.?);
-    if (def == null) {
-        std.debug.print("warn: definition not found\n", .{}); // TODO
-        return null;
-    }
-
-    const len, const pos = Locator.getItemLenAndPos(def.?);
-
-    return .{
-        .Definition = .{
-            .Location = .{
-                .uri = params.textDocument.uri,
-                .range = .{
-                    .start = pos,
-                    .end = .{
-                        .line = @intCast(pos.line),
-                        .character = @intCast(pos.character + len),
-                    },
-                },
-            },
-        },
-    };
-}
-
-const matcher = struct {
-    n: []const u8,
-    fn m(self_: @This(), item_: Locator.AstItem) bool {
-        return std.mem.eql(u8, self_.n, nameOf(item_));
-    }
-    fn str(self_: @This(), item_: []const u8) bool {
-        return std.mem.eql(u8, self_.n, item_);
-    }
-};
 
 fn references(_self: *anyopaque, params: lsp.types.ReferenceParams) Error!?[]lsp.types.Location {
     return tryReferences(_self, params) catch |err| {
@@ -173,40 +129,6 @@ fn references(_self: *anyopaque, params: lsp.types.ReferenceParams) Error!?[]lsp
     };
 }
 
-fn tryReferences(_self: *anyopaque, params: lsp.types.ReferenceParams) !?[]lsp.types.Location {
-    const self: *Handler = @ptrCast(@alignCast(_self));
-
-    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
-
-    const item = locator.getItemAt(params.position.character, params.position.line);
-    if (item == null) {
-        std.debug.print("nothing found in locator\n", .{}); // TODO
-        return null;
-    }
-
-    const itemName = nameOf(item.?);
-
-    const matches = matcher{
-        .n = itemName,
-    };
-
-    var locs = std.ArrayList(lsp.types.Location).init(self.alloc);
-    for (locator.locations) |loc| {
-        switch (loc.item) {
-            .object, .input, .interface, .namedType => {
-                if (matches.m(loc.item)) {
-                    try locs.append(.{
-                        .uri = params.textDocument.uri,
-                        .range = rangeOf(loc.item),
-                    });
-                }
-            },
-            else => continue,
-        }
-    }
-
-    return try locs.toOwnedSlice();
-}
 
 fn gotoImplementation(_self: *anyopaque, params: lsp.types.ImplementationParams) Error!lsp.ResultType("textDocument/implementation") {
     return tryGotoImplementation(_self, params) catch |err| {

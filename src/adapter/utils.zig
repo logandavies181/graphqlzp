@@ -78,24 +78,24 @@ pub fn formatArgDefs(alloc: std.mem.Allocator, args: []ast.ArgumentDefinition) !
         return "";
     }
 
-    var content = std.ArrayList(u8).init(alloc);
-    try content.append('(');
+    var content = std.ArrayList(u8){};
+    try content.append(alloc, '(');
 
     for (args, 0..args.len) |arg, i| {
         try content
-            .appendSlice(try std.fmt.allocPrint(
+            .appendSlice(alloc, try std.fmt.allocPrint(
             alloc,
             "{s}: {s}",
             .{ arg.name, try formatTypeRef(alloc, arg.ty) },
         ));
         if (i < args.len - 1) {
-            try content.appendSlice(", ");
+            try content.appendSlice(alloc, ", ");
         } else {
-            try content.append(')');
+            try content.append(alloc, ')');
         }
     }
 
-    return try content.toOwnedSlice();
+    return try content.toOwnedSlice(alloc);
 }
 
 pub fn formatTypeRef(alloc: std.mem.Allocator, tr: ast.TypeRef) ![]const u8 {
@@ -107,3 +107,13 @@ pub fn formatTypeRef(alloc: std.mem.Allocator, tr: ast.TypeRef) ![]const u8 {
         },
     };
 }
+
+pub const matcher = struct {
+    n: []const u8,
+    pub fn m(self_: @This(), item_: Locator.AstItem) bool {
+        return std.mem.eql(u8, self_.n, nameOf(item_));
+    }
+    pub fn str(self_: @This(), item_: []const u8) bool {
+        return std.mem.eql(u8, self_.n, item_);
+    }
+};
