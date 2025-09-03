@@ -1,6 +1,6 @@
 const std = @import("std");
 const lsp = @import("lsp");
-const Handler = @import("adapter/handler.zig");
+const Handler = @import("adapter/handler2.zig");
 const Server = @import("lzp/server.zig");
 const config = @import("config");
 
@@ -12,20 +12,20 @@ pub fn main() !void {
         std.process.exit(0);
     }
 
-    var gpa = std.heap.DebugAllocator(.{}).init;
-    const alloc = gpa.allocator();
+    var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
+    const gpa = debug_allocator.allocator();
 
-    var transport: lsp.ThreadSafeTransport(.{
-        .ChildTransport = lsp.Transport.Stdio,
-        .thread_safe_read = false,
-        .thread_safe_write = true,
-    }) = .{ .child_transport = .init(std.io.getStdIn(), std.io.getStdOut()) };
+    var read_buffer: [4096]u8 = undefined;
+    var stdio_transport: lsp.Transport.Stdio = .init(&read_buffer, .stdin(), .stdout());
+    const transport: *lsp.Transport = &stdio_transport.transport;
 
-    var h = Handler.init(alloc);
+    var handler: Handler = .init(gpa);
+    defer handler.deinit();
 
-    const server = try Server.create(alloc, h.handler());
-    defer server.destroy();
-    server.setTransport(transport.any());
-
-    try server.loop();
+    try lsp.basic_server.run(
+        gpa,
+        transport,
+        &handler,
+        std.log.err,
+    );
 }

@@ -1,11 +1,12 @@
 const std = @import("std");
 
+const config = @import("config");
+
 const ast = @import("../graphql/ast.zig");
 const lexer = @import("../graphql/lexer.zig");
 const parser = @import("../graphql/parser.zig");
 
-const Errors = @import("../lzp/errors.zig");
-const Error = Errors.Error;
+const Error = lsp.types.ErrorCodes;
 const lsp = @import("lsp");
 
 const _handler = @import("../lzp/handler.zig");
@@ -23,14 +24,23 @@ pub fn init(alloc: std.mem.Allocator) Handler {
     };
 }
 
-pub fn handler(self: *Handler) _handler {
+pub fn deinit(_: *Handler) void {
+}
+
+pub fn initialize(
+    _: *Handler,
+    _: std.mem.Allocator,
+    _: lsp.types.InitializeParams,
+) lsp.types.InitializeResult {
     return .{
-        .ptr = self,
-        .vtable = &.{
-            .hover = hover,
-            .gotoDefinition = gotoDefinition,
-            .gotoImplementation = gotoImplementation,
-            .references = references,
+        .serverInfo = .{
+            .name = "graphqlzp",
+            .version = config.version,
+        },
+        .capabilities = .{
+            .positionEncoding = .@"utf-8",
+            //.hoverProvider = .{ .bool = true },
+            // TODO, other caps
         },
     };
 }
@@ -103,7 +113,7 @@ fn rangeOf(item: Locator.AstItem) lsp.types.Range {
     };
 }
 
-fn hover(_self: *anyopaque, params: lsp.types.HoverParams) Error!?lsp.types.Hover {
+pub fn hover(_self: *anyopaque, params: lsp.types.HoverParams) Error!?lsp.types.Hover {
     return tryHover(_self, params) catch |err| {
         std.debug.print("got error: {any}", .{err});
         return Error.InternalError;
