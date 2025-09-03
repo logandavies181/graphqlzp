@@ -10,14 +10,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const lsp_codegen = b.dependency("lsp_codegen", .{});
+    const lsp = b.dependency("lsp_kit", .{}).module("lsp");
 
     const exe = b.addExecutable(.{
         .name = "graphqlzp",
         .root_module = exe_mod,
     });
 
-    exe.root_module.addImport("lsp", lsp_codegen.module("lsp"));
+    exe.root_module.addImport("lsp", lsp);
 
     const version = b.option([]const u8, "version", "application version string") orelse "0.0.0";
     const options = b.addOptions();

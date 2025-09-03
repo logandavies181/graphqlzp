@@ -81,7 +81,7 @@ const Tokenizer = struct {
     }
 
     fn tokenize(self: *Tokenizer, alloc: std.mem.Allocator) ![]Token {
-        var tokens = std.ArrayList(Token).init(alloc);
+        var tokens = std.ArrayList(Token){};
 
         // TODO move BOM check to standard lexing. Spec says we can just ignore it in the middle of files.
         const first = self.iter.peek(1);
@@ -138,10 +138,10 @@ const Tokenizer = struct {
             } else {
                 return Error.unknownToken;
             }
-            try tokens.append(token);
+            try tokens.append(alloc, token);
         }
 
-        return tokens.toOwnedSlice();
+        return tokens.toOwnedSlice(alloc);
     }
 
     fn eq(cp: []const u8, ci: comptime_int) bool {
@@ -320,7 +320,7 @@ const Tokenizer = struct {
 
         self.discardNChars(3);
 
-        var lines = std.ArrayList([]u8).init(self.alloc);
+        var lines = std.ArrayList([]u8){};
         var indent: ?u64 = null;
         var currIndent: u64 = 0;
         var firstNonWhitespace = false;
@@ -355,14 +355,14 @@ const Tokenizer = struct {
                     numNewlineChars += 1;
                     _ = self.readChar();
                 }
-                try lines.append(self.buf[linePos .. self.pos - numNewlineChars]);
+                try lines.append(self.alloc, self.buf[linePos .. self.pos - numNewlineChars]);
                 currIndent = 0;
                 linePos = self.pos;
                 firstLine = false;
                 self.lineNum += 1;
                 self.currentOffset = 0;
             } else if (memeql(u8, next, "\r")) {
-                try lines.append(self.buf[linePos .. self.pos - numNewlineChars]);
+                try lines.append(self.alloc, self.buf[linePos .. self.pos - numNewlineChars]);
                 currIndent = 0;
                 linePos = self.pos;
                 firstLine = false;
@@ -372,28 +372,28 @@ const Tokenizer = struct {
 
             // TODO: handle escape chars
             if (memeql(u8, self.iter.peek(3), "\"\"\"")) {
-                try lines.append(self.buf[linePos..self.pos]);
+                try lines.append(self.alloc, self.buf[linePos..self.pos]);
                 self.discardNChars(3);
                 break;
             }
         }
 
-        var output = std.ArrayList(u8).init(self.alloc);
+        var output = std.ArrayList(u8){};
         for (lines.items, 0..lines.items.len) |line, i| {
             if (i == 0) {
                 if (removeFirstLine) {
                     continue;
                 }
 
-                try output.appendSlice(line);
+                try output.appendSlice(self.alloc, line);
             } else {
-                try output.appendSlice(line[indent orelse 0 ..]);
+                try output.appendSlice(self.alloc, line[indent orelse 0 ..]);
             }
         }
 
         return .{
             .kind = .string,
-            .value = try output.toOwnedSlice(),
+            .value = try output.toOwnedSlice(self.alloc),
             .lineNum = self.lineNum,
             .offset = offset,
         };

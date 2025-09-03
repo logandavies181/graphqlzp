@@ -16,7 +16,7 @@ pub fn main() !void {
     const alloc = gpa.allocator();
 
     var transport: lsp.ThreadSafeTransport(.{
-        .ChildTransport = lsp.TransportOverStdio,
+        .ChildTransport = lsp.Transport.Stdio,
         .thread_safe_read = false,
         .thread_safe_write = true,
     }) = .{ .child_transport = .init(std.io.getStdIn(), std.io.getStdOut()) };
