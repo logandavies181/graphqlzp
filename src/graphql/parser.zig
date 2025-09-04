@@ -75,14 +75,14 @@ pub const Parser = struct {
     }
 
     fn tryParse(self: *Parser) !Document {
-        var directiveDefs = std.ArrayList(DirectiveDef).init(self.alloc);
-        var enums = std.ArrayList(Enum).init(self.alloc);
-        var inputs = std.ArrayList(Input).init(self.alloc);
-        var interfaces = std.ArrayList(Interface).init(self.alloc);
-        var objects = std.ArrayList(Object).init(self.alloc);
-        var scalars = std.ArrayList(Scalar).init(self.alloc);
+        var directiveDefs = std.ArrayList(DirectiveDef){};
+        var enums = std.ArrayList(Enum){};
+        var inputs = std.ArrayList(Input){};
+        var interfaces = std.ArrayList(Interface){};
+        var objects = std.ArrayList(Object){};
+        var scalars = std.ArrayList(Scalar){};
         var schema: ?Schema = null;
-        var unions = std.ArrayList(Union).init(self.alloc);
+        var unions = std.ArrayList(Union){};
 
         var desc: ?[]const u8 = null;
         while (true) {
@@ -99,31 +99,31 @@ pub const Parser = struct {
                             var item = try self.parseDirectiveDef();
                             item.description = desc;
                             desc = null;
-                            try directiveDefs.append(item);
+                            try directiveDefs.append(self.alloc, item);
                         },
                         .enum_ => {
                             var item = try self.parseEnum();
                             item.description = desc;
                             desc = null;
-                            try enums.append(item);
+                            try enums.append(self.alloc, item);
                         },
                         .input => {
                             var item = try self.parseInput();
                             item.description = desc;
                             desc = null;
-                            try inputs.append(item);
+                            try inputs.append(self.alloc, item);
                         },
                         .interface => {
                             var item = try self.parseInterface();
                             item.description = desc;
                             desc = null;
-                            try interfaces.append(item);
+                            try interfaces.append(self.alloc, item);
                         },
                         .scalar => {
                             var item = try self.parseScalar();
                             item.description = desc;
                             desc = null;
-                            try scalars.append(item);
+                            try scalars.append(self.alloc, item);
                         },
                         .schema => {
                             if (schema != null) {
@@ -138,13 +138,13 @@ pub const Parser = struct {
                             var item = try self.parseObject();
                             item.description = desc;
                             desc = null;
-                            try objects.append(item);
+                            try objects.append(self.alloc, item);
                         },
                         .union_ => {
                             var item = try self.parseUnion();
                             item.description = desc;
                             desc = null;
-                            try unions.append(item);
+                            try unions.append(self.alloc, item);
                         },
                         else => {
                             return self.badParse("unknown keyword");
@@ -207,14 +207,14 @@ pub const Parser = struct {
         }
 
         return .{
-            .directiveDefinitions = try directiveDefs.toOwnedSlice(),
-            .enums = try enums.toOwnedSlice(),
-            .inputs = try inputs.toOwnedSlice(),
-            .interfaces = try interfaces.toOwnedSlice(),
-            .objects = try objects.toOwnedSlice(),
-            .scalars = try scalars.toOwnedSlice(),
+            .directiveDefinitions = try directiveDefs.toOwnedSlice(self.alloc),
+            .enums = try enums.toOwnedSlice(self.alloc),
+            .inputs = try inputs.toOwnedSlice(self.alloc),
+            .interfaces = try interfaces.toOwnedSlice(self.alloc),
+            .objects = try objects.toOwnedSlice(self.alloc),
+            .scalars = try scalars.toOwnedSlice(self.alloc),
             .schema = schema.?,
-            .unions = try unions.toOwnedSlice(),
+            .unions = try unions.toOwnedSlice(self.alloc),
         };
     }
 
@@ -339,7 +339,7 @@ pub const Parser = struct {
         }
 
         var description: ?[]const u8 = null;
-        var members = std.ArrayList(EnumValue).init(self.alloc);
+        var members = std.ArrayList(EnumValue){};
         while (true) {
             const next = try self.iter.requireNextMeaningful(&.{ .rbrack, .identifier, .string });
             switch (next.kind) {
@@ -351,7 +351,7 @@ pub const Parser = struct {
                         memberDirectives = try self.parseDirectives();
                     }
 
-                    try members.append(.{
+                    try members.append(self.alloc, .{
                         .name = next.value,
                         .description = description,
                         .directives = memberDirectives,
@@ -374,7 +374,7 @@ pub const Parser = struct {
         return .{
             .name = name.value,
             .directives = directives,
-            .values = try members.toOwnedSlice(),
+            .values = try members.toOwnedSlice(self.alloc),
 
             .offset = name.offset,
             .lineNum = name.lineNum,
@@ -392,7 +392,7 @@ pub const Parser = struct {
     fn parse_struct(self: *Parser, ty: type) !ty {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        var implements = std.ArrayList(NamedType).init(self.alloc);
+        var implements = std.ArrayList(NamedType){};
         blk: {
             // TODO break out parsing implements section.
 
@@ -428,7 +428,7 @@ pub const Parser = struct {
 
                         _ = try self.iter.requireNextMeaningful(&.{.identifier}); // impements keyword
 
-                        try implements.append(.{
+                        try implements.append(self.alloc, .{
                             .name = next.?.value,
                             .offset = next.?.offset,
                             .lineNum = next.?.lineNum,
@@ -456,7 +456,7 @@ pub const Parser = struct {
 
         _ = try self.iter.requireNextMeaningful(&.{.lbrack});
 
-        var fields = std.ArrayList(Field).init(self.alloc);
+        var fields = std.ArrayList(Field){};
 
         var desc: ?[]const u8 = null;
         while (true) {
@@ -473,7 +473,7 @@ pub const Parser = struct {
                 .identifier => {
                     const fld = try self.parseFieldDef(next, desc);
                     desc = null;
-                    try fields.append(fld);
+                    try fields.append(self.alloc, fld);
                 },
                 else => return Error.badParse,
             }
@@ -481,10 +481,10 @@ pub const Parser = struct {
 
         return .{
             .name = name.value,
-            .fields = try fields.toOwnedSlice(),
+            .fields = try fields.toOwnedSlice(self.alloc),
             .directives = directives,
 
-            .implements = try implements.toOwnedSlice(),
+            .implements = try implements.toOwnedSlice(self.alloc),
 
             .offset = name.offset,
             .lineNum = name.lineNum,
@@ -514,7 +514,7 @@ pub const Parser = struct {
             },
         }
 
-        var fields = std.ArrayList(InputField).init(self.alloc);
+        var fields = std.ArrayList(InputField){};
         var desc: ?[]const u8 = null;
         while (true) {
             const _next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
@@ -531,7 +531,7 @@ pub const Parser = struct {
                     var fld = try self.parseInputFieldDef(_next);
                     fld.description = desc;
                     desc = null;
-                    try fields.append(fld);
+                    try fields.append(self.alloc, fld);
                 },
                 else => return Error.badParse,
             }
@@ -539,7 +539,7 @@ pub const Parser = struct {
 
         return .{
             .name = name.value,
-            .inputFields = try fields.toOwnedSlice(),
+            .inputFields = try fields.toOwnedSlice(self.alloc),
             .directives = directives,
 
             .offset = name.offset,
@@ -685,7 +685,7 @@ pub const Parser = struct {
         _ = try self.iter.requireNextMeaningful(&.{.equals});
 
         peeked = self.iter.peekNextMeaningful();
-        var members = std.ArrayList(NamedType).init(self.alloc);
+        var members = std.ArrayList(NamedType){};
         if (peeked != null) {
             // This is intentionally backwards, so we don't error upon actually reading
             // the first one.
@@ -715,7 +715,7 @@ pub const Parser = struct {
                         }
                         lastWasbar = false;
 
-                        try members.append(.{
+                        try members.append(self.alloc, .{
                             .name = next.value,
                             .offset = next.offset,
                             .lineNum = next.lineNum,
@@ -730,7 +730,7 @@ pub const Parser = struct {
         return .{
             .name = name.value,
             .directives = directives,
-            .types = try members.toOwnedSlice(),
+            .types = try members.toOwnedSlice(self.alloc),
 
             .offset = name.offset,
             .lineNum = name.lineNum,
@@ -812,7 +812,7 @@ pub const Parser = struct {
     }
 
     fn parseArguments(self: *Parser) ![]Argument {
-        var args = std.ArrayList(Argument).init(self.alloc);
+        var args = std.ArrayList(Argument){};
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
             if (peeked == null) {
@@ -823,9 +823,9 @@ pub const Parser = struct {
             }
 
             const next = try self.parseArgument();
-            try args.append(next);
+            try args.append(self.alloc, next);
         }
-        return try args.toOwnedSlice();
+        return try args.toOwnedSlice(self.alloc);
     }
 
     fn parseArgument(self: *Parser) !Argument {
@@ -868,15 +868,15 @@ pub const Parser = struct {
                 .Float = try std.fmt.parseFloat(f64, next.value),
             },
             .lsqbrack => blk: {
-                var listItems = std.ArrayList(Value).init(self.alloc);
+                var listItems = std.ArrayList(Value){};
                 while (true) {
                     const _next = try self.parseValue();
                     if (_next == null) {
                         break :blk .{
-                            .List = try listItems.toOwnedSlice(),
+                            .List = try listItems.toOwnedSlice(self.alloc),
                         };
                     }
-                    try listItems.append(_next.?);
+                    try listItems.append(self.alloc, _next.?);
                 }
             },
             .rsqbrack => null,
@@ -885,7 +885,7 @@ pub const Parser = struct {
     }
 
     fn parseArgumentDefinitions(self: *Parser) ![]ArgumentDefinition {
-        var args = std.ArrayList(ArgumentDefinition).init(self.alloc);
+        var args = std.ArrayList(ArgumentDefinition){};
         var description: ?[]const u8 = null;
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
@@ -913,7 +913,7 @@ pub const Parser = struct {
                         next.directives = try self.parseDirectives();
                     }
 
-                    try args.append(next);
+                    try args.append(self.alloc, next);
                 },
                 .string => {
                     if (description != null) {
@@ -926,7 +926,7 @@ pub const Parser = struct {
                 else => return Error.badParse,
             }
         }
-        return try args.toOwnedSlice();
+        return try args.toOwnedSlice(self.alloc);
     }
 
     fn parseArgumentDefinition(self: *Parser) !ArgumentDefinition {
@@ -953,7 +953,7 @@ pub const Parser = struct {
 
     /// Assumes the caller has peeked for @ before calling.
     fn parseDirectives(self: *Parser) ![]Directive {
-        var directives = std.ArrayList(Directive).init(self.alloc);
+        var directives = std.ArrayList(Directive){};
 
         while (true) {
             const next = self.iter.peekNextMeaningful();
@@ -963,14 +963,14 @@ pub const Parser = struct {
 
             switch (next.?.kind) {
                 .at => {
-                    try directives.append(try self.parseDirective());
+                    try directives.append(self.alloc, try self.parseDirective());
                 },
                 .lbrack, .lparen, .identifier, .equals, .rbrack, .rparen, .string => break,
                 else => return Error.badParse,
             }
         }
 
-        return try directives.toOwnedSlice();
+        return try directives.toOwnedSlice(self.alloc);
     }
 
     fn parseDirective(self: *Parser) !Directive {
@@ -1032,7 +1032,7 @@ pub const Parser = struct {
             else => return Error.badParse,
         }
 
-        var locations = std.ArrayList(DirectiveLocation).init(self.alloc);
+        var locations = std.ArrayList(DirectiveLocation){};
         var lastWasBar = true;
         while (true) {
             const _next = self.iter.nextMeaningful() catch |e| {
@@ -1055,7 +1055,7 @@ pub const Parser = struct {
                     switch (directiveLoc) {
                         .unknown => break,
                         else => {
-                            try locations.append(directiveLoc);
+                            try locations.append(self.alloc, directiveLoc);
                         },
                     }
                     lastWasBar = false;
@@ -1075,7 +1075,7 @@ pub const Parser = struct {
             .name = name.value,
             .args = args,
             .repeatable = repeatable,
-            .locations = try locations.toOwnedSlice(),
+            .locations = try locations.toOwnedSlice(self.alloc),
 
             .offset = name.offset,
             .lineNum = name.lineNum,

@@ -141,16 +141,18 @@ pub fn getNamedTypeFromTypeRef(tr: ast.TypeRef) ast.NamedType {
 
 const locatorBuilder = struct {
     locations: *std.ArrayList(location),
+    alloc: std.mem.Allocator,
 
-    fn init(locations: *std.ArrayList(location)) locatorBuilder {
+    fn init(alloc: std.mem.Allocator, locations: *std.ArrayList(location)) locatorBuilder {
         return .{
             .locations = locations,
+            .alloc = alloc,
         };
     }
 
     fn addNamedType(self: *locatorBuilder, nt: ?ast.NamedType) !void {
         if (nt) |_nt| {
-            try self.locations.append(.{
+            try self.locations.append(self.alloc, .{
                 .item = .{
                     .namedType = _nt,
                 },
@@ -179,11 +181,11 @@ const locatorBuilder = struct {
             else
                 return;
 
-        try self.locations.append(.{ .item = item, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
+        try self.locations.append(self.alloc, .{ .item = item, .len = obj.name.len, .offset = obj.offset, .lineNum = obj.lineNum });
 
         if (ty != ast.Input) {
             for (obj.implements) |impl| {
-                try self.locations.append(.{ .item = .{
+                try self.locations.append(self.alloc, .{ .item = .{
                     .namedType = impl,
                 }, .len = impl.name.len, .offset = impl.offset, .lineNum = impl.lineNum });
             }
@@ -195,7 +197,7 @@ const locatorBuilder = struct {
 
     fn addDirectives(self: *locatorBuilder, obj: anytype) !void {
         for (obj.directives) |dr| {
-            try self.locations.append(.{
+            try self.locations.append(self.alloc, .{
                 .item = .{
                     .directive = dr,
                 },
@@ -216,7 +218,7 @@ const locatorBuilder = struct {
     }
 
     fn addDirectiveDefinitions(self: *locatorBuilder, directiveDef: ast.DirectiveDef) !void {
-        try self.locations.append(.{
+        try self.locations.append(self.alloc, .{
             .item = .{
                 .directiveDefinition = directiveDef,
             },
@@ -229,7 +231,7 @@ const locatorBuilder = struct {
 
     fn addFieldDefinitions(self: *locatorBuilder, fields: []ast.Field, parentTy: type, parent: parentTy) !void {
         for (fields) |fld| {
-            try self.locations.append(.{
+            try self.locations.append(self.alloc, .{
                 .item = .{
                     .fieldDefinition = .{
                         .field = fld,
@@ -245,12 +247,12 @@ const locatorBuilder = struct {
             });
 
             const nt = getNamedTypeFromTypeRef(fld.type);
-            try self.locations.append(.{ .item = .{
+            try self.locations.append(self.alloc, .{ .item = .{
                 .namedType = nt,
             }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
 
             for (fld.args) |arg| {
-                try self.locations.append(.{
+                try self.locations.append(self.alloc, .{
                     .item = .{
                         .argumentDefinition = arg,
                     },
@@ -260,7 +262,7 @@ const locatorBuilder = struct {
                 });
 
                 const _nt = getNamedTypeFromTypeRef(arg.ty);
-                try self.locations.append(.{ .item = .{
+                try self.locations.append(self.alloc, .{ .item = .{
                     .namedType = _nt,
                 }, .len = _nt.name.len, .offset = _nt.offset, .lineNum = _nt.lineNum });
             }
@@ -271,7 +273,7 @@ const locatorBuilder = struct {
 
     fn addInputFields(self: *locatorBuilder, fields: []ast.InputField, parent: ast.Input) !void {
         for (fields) |fld| {
-            try self.locations.append(.{
+            try self.locations.append(self.alloc, .{
                 .item = .{
                     .inputField = .{
                         .field = fld,
@@ -284,7 +286,7 @@ const locatorBuilder = struct {
             });
 
             const nt = getNamedTypeFromTypeRef(fld.type);
-            try self.locations.append(.{ .item = .{
+            try self.locations.append(self.alloc, .{ .item = .{
                 .namedType = nt,
             }, .len = nt.name.len, .offset = nt.offset, .lineNum = nt.lineNum });
 
@@ -293,7 +295,7 @@ const locatorBuilder = struct {
     }
 
     fn addScalar(self: *locatorBuilder, item: ast.Scalar) !void {
-        try self.locations.append(.{ .item = .{
+        try self.locations.append(self.alloc, .{ .item = .{
             .scalar = item,
         }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
 
@@ -301,12 +303,12 @@ const locatorBuilder = struct {
     }
 
     fn addEnum(self: *locatorBuilder, item: ast.Enum) !void {
-        try self.locations.append(.{ .item = .{
+        try self.locations.append(self.alloc, .{ .item = .{
             .enum_ = item,
         }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
 
         for (item.values) |val| {
-            try self.locations.append(.{ .item = .{
+            try self.locations.append(self.alloc, .{ .item = .{
                 .enumValue = val,
             }, .len = val.name.len, .offset = val.offset, .lineNum = val.lineNum });
         }
@@ -315,12 +317,12 @@ const locatorBuilder = struct {
     }
 
     fn addUnion(self: *locatorBuilder, item: ast.Union) !void {
-        try self.locations.append(.{ .item = .{
+        try self.locations.append(self.alloc, .{ .item = .{
             .union_ = item,
         }, .len = item.name.len, .offset = item.offset, .lineNum = item.lineNum });
 
         for (item.types) |ty| {
-            try self.locations.append(.{ .item = .{
+            try self.locations.append(self.alloc, .{ .item = .{
                 .namedType = ty,
             }, .len = ty.name.len, .offset = ty.offset, .lineNum = ty.lineNum });
         }
@@ -332,10 +334,11 @@ const locatorBuilder = struct {
 pub const Locator = struct {
     locations: []location,
     doc: ast.Document,
+    alloc: std.mem.Allocator,
 
     pub fn init(doc: ast.Document, alloc: std.mem.Allocator) !Locator {
-        var locations = std.ArrayList(location).init(alloc);
-        var lb = locatorBuilder.init(&locations);
+        var locations = std.ArrayList(location){};
+        var lb = locatorBuilder.init(alloc, &locations);
 
         try lb.addSchema(doc.schema);
         for (doc.objects) |item| {
@@ -361,8 +364,9 @@ pub const Locator = struct {
         }
 
         return .{
-            .locations = try locations.toOwnedSlice(),
+            .locations = try locations.toOwnedSlice(alloc),
             .doc = doc,
+            .alloc = alloc,
         };
     }
 
