@@ -2,21 +2,19 @@ const std = @import("std");
 
 const config = @import("config");
 
+const lsp = @import("lsp");
+const Error = lsp.types.ErrorCodes;
+
 const ast = @import("../graphql/ast.zig");
 const lexer = @import("../graphql/lexer.zig");
 const parser = @import("../graphql/parser.zig");
-
-const Error = lsp.types.ErrorCodes;
-const lsp = @import("lsp");
-
-const _handler = @import("../lzp/handler.zig");
-
 const Locator = @import("locator.zig");
+
+const utils = @import("utils.zig");
 
 const Handler = @This();
 
 alloc: std.mem.Allocator,
-document: ?ast.Document = null,
 
 pub fn init(alloc: std.mem.Allocator) Handler {
     return .{
@@ -39,22 +37,68 @@ pub fn initialize(
         },
         .capabilities = .{
             .positionEncoding = .@"utf-8",
-            //.hoverProvider = .{ .bool = true },
-            // TODO, other caps
+
+            .definitionProvider = .{ .bool = true },
+            .hoverProvider = .{ .bool = true },
+            .implementationProvider = .{ .bool = true },
+            .referencesProvider = .{ .bool = true },
         },
     };
 }
 
-pub fn hover(_self: *anyopaque, params: lsp.types.HoverParams) Error!?lsp.types.Hover {
-    return tryHover(_self, params) catch |err| {
-        std.debug.print("got error: {any}", .{err});
-        return Error.InternalError;
-    };
+pub fn initialized(
+    _: *Handler,
+    _: std.mem.Allocator,
+    _: lsp.types.InitializedParams,
+) void {
+    std.log.debug("Received 'initialized' notification", .{});
 }
 
-fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover {
-    const self: *Handler = @ptrCast(@alignCast(_self));
+pub fn shutdown(
+    _: *Handler,
+    _: std.mem.Allocator,
+    _: void,
+) ?void {
+    std.log.debug("Received 'shutdown' request", .{});
+    return null;
+}
 
+pub fn exit(
+    _: *Handler,
+    _: std.mem.Allocator,
+    _: void,
+) void {
+    std.log.debug("Received 'exit' notification", .{});
+}
+
+pub fn onResponse(
+    _: *Handler,
+    _: std.mem.Allocator,
+    _: lsp.JsonRPCMessage.Response,
+) void {
+}
+
+pub fn getDocAndLocator(self: *Handler, furi: []const u8) !struct { ast.Document, Locator.Locator } {
+    // trim file:// if present
+    const fname =
+        if (std.mem.eql(u8, furi[0..7], "file://"))
+            furi[6..]
+        else
+            furi;
+
+    const lexResult = try lexer.tokenize(self.alloc, fname);
+    // TODO memory mgmt
+
+    var _parser = parser.Parser.create(self.alloc, lexResult.tokens);
+    const doc = try _parser.parse();
+
+    const locator = try Locator.Locator.init(doc, self.alloc);
+
+    return .{ doc, locator };
+}
+
+// TODO mem
+pub fn @"textDocument/hover" (self: *Handler, _: std.mem.Allocator, params: lsp.types.HoverParams) !?lsp.types.Hover {
     _, const locator = try self.getDocAndLocator(params.textDocument.uri);
 
     const item = locator.getItemAt(params.position.character, params.position.line);
@@ -68,21 +112,21 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
     };
 
     // TODO: mem mgmt
-    var content = std.ArrayList(u8).init(self.alloc);
+    var content = std.ArrayList(u8){};
     const allocprint = std.fmt.allocPrint;
 
-    const description = descriptionOf(def);
+    const description = utils.descriptionOf(def);
     if (description != null) {
-        try content.appendSlice(try allocprint(self.alloc, "{s}\n", .{description.?}));
+        try content.appendSlice(self.alloc, try allocprint(self.alloc, "{s}\n", .{description.?}));
     }
-    const keyword = keywordFromType(def);
+    const keyword = utils.keywordFromType(def);
     if (keyword != null) {
         const name = switch (def) {
-            .directive, .directiveDefinition => try allocprint(self.alloc, "@{s}", .{nameOf(def)}),
-            else => nameOf(def),
+            .directive, .directiveDefinition => try allocprint(self.alloc, "@{s}", .{utils.nameOf(def)}),
+            else => utils.nameOf(def),
         };
 
-        try content.appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, name }));
+        try content.appendSlice(self.alloc, try allocprint(self.alloc, "```graphql\n{s} {s}\n```", .{ keyword.?, name }));
     } else {
         switch (def) {
             .fieldDefinition => |fld| {
@@ -92,11 +136,11 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
                     .input => "input",
                 };
                 try content
-                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try formatArgDefs(self.alloc, fld.field.args), try formatTypeRef(self.alloc, fld.field.type) }));
+                    .appendSlice(self.alloc, try allocprint(self.alloc, "```graphql\n{s} {s} {{\n  ,,,\n  {s}{s}: {s}\n}}\n```", .{ parentKw, fld.parent.name, fld.field.name, try utils.formatArgDefs(self.alloc, fld.field.args), try utils.formatTypeRef(self.alloc, fld.field.type) }));
             },
             .argumentDefinition => |ad| {
                 try content
-                    .appendSlice(try allocprint(self.alloc, "```graphql\n{s}: {s}\n```", .{ ad.name, try formatTypeRef(self.alloc, ad.ty) }));
+                    .appendSlice(self.alloc, try allocprint(self.alloc, "```graphql\n{s}: {s}\n```", .{ ad.name, try utils.formatTypeRef(self.alloc, ad.ty) }));
             },
             else => {
                 std.debug.print("warn: unreachable arm rendering hover\n", .{});
@@ -107,33 +151,128 @@ fn tryHover(_self: *anyopaque, params: lsp.types.HoverParams) !?lsp.types.Hover 
 
     return .{
         .contents = .{
-            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice() },
+            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice(self.alloc) },
         },
     };
 }
 
+pub fn @"textDocument/definition" (self: *Handler, _: std.mem.Allocator, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
+    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
 
-fn gotoDefinition(_self: *anyopaque, params: lsp.types.DefinitionParams) Error!lsp.ResultType("textDocument/definition") {
-    return tryGotoDefinition(_self, params) catch |err| {
-        std.debug.print("got error: {any}", .{err});
-        return Error.InternalError;
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found in locator\n", .{}); // TODO
+        return null;
+    }
+
+    const def = locator.getItemDefinition(item.?);
+    if (def == null) {
+        std.debug.print("warn: definition not found\n", .{}); // TODO
+        return null;
+    }
+
+    const len, const pos = Locator.getItemLenAndPos(def.?);
+
+    return .{
+        .Definition = .{
+            .Location = .{
+                .uri = params.textDocument.uri,
+                .range = .{
+                    .start = pos,
+                    .end = .{
+                        .line = @intCast(pos.line),
+                        .character = @intCast(pos.character + len),
+                    },
+                },
+            },
+        },
     };
 }
 
+pub fn @"textDocument/references" (self: *Handler, _: std.mem.Allocator, params: lsp.types.ReferenceParams) !lsp.ResultType("textDocument/references") {
+    _, const locator = try self.getDocAndLocator(params.textDocument.uri);
 
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found in locator\n", .{}); // TODO
+        return null;
+    }
 
-fn references(_self: *anyopaque, params: lsp.types.ReferenceParams) Error!?[]lsp.types.Location {
-    return tryReferences(_self, params) catch |err| {
-        std.debug.print("got error: {any}", .{err});
-        return Error.InternalError;
+    const itemName = utils.nameOf(item.?);
+
+    const matches = utils.matcher{
+        .n = itemName,
     };
+
+    var locs = std.ArrayList(lsp.types.Location){};
+    for (locator.locations) |loc| {
+        switch (loc.item) {
+            .object, .input, .interface, .namedType => {
+                if (matches.m(loc.item)) {
+                    try locs.append(self.alloc, .{
+                        .uri = params.textDocument.uri,
+                        .range = utils.rangeOf(loc.item),
+                    });
+                }
+            },
+            else => continue,
+        }
+    }
+
+    return try locs.toOwnedSlice(self.alloc);
 }
 
+pub fn @"textDocument/implementation" (self: *Handler, _: std.mem.Allocator, params: lsp.types.ImplementationParams) !lsp.ResultType("textDocument/implementation") {
+    const doc, const locator = try self.getDocAndLocator(params.textDocument.uri);
 
-fn gotoImplementation(_self: *anyopaque, params: lsp.types.ImplementationParams) Error!lsp.ResultType("textDocument/implementation") {
-    return tryGotoImplementation(_self, params) catch |err| {
-        std.debug.print("got error: {any}", .{err});
-        return Error.InternalError;
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found in locator\n", .{}); // TODO
+        return null;
+    }
+
+    const itemName = utils.nameOf(item.?);
+
+    const matches = utils.matcher{
+        .n = itemName,
+    };
+
+    var locs = std.ArrayList(lsp.types.Location){};
+
+    switch (item.?) {
+        .object, .interface => {
+            try locs.append(self.alloc, .{
+                .uri = params.textDocument.uri,
+                .range = utils.rangeOf(item.?),
+            });
+        },
+        else => {},
+    }
+
+    for (doc.objects) |obj| {
+        for (obj.implements) |impl| {
+            if (matches.str(impl.name)) {
+                try locs.append(self.alloc, .{
+                    .uri = params.textDocument.uri,
+                    .range = utils.rangeOf(.{ .object = obj }),
+                });
+            }
+        }
+    }
+    for (doc.interfaces) |ifce| {
+        for (ifce.implements) |impl| {
+            if (matches.str(impl.name)) {
+                try locs.append(self.alloc, .{
+                    .uri = params.textDocument.uri,
+                    .range = utils.rangeOf(.{ .interface = ifce }),
+                });
+            }
+        }
+    }
+
+    return .{
+        .Definition = .{
+            .array_of_Location = try locs.toOwnedSlice(self.alloc),
+        },
     };
 }
-

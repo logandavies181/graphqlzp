@@ -1,7 +1,6 @@
 const std = @import("std");
 const lsp = @import("lsp");
-const Handler = @import("adapter/handler2.zig");
-const Server = @import("lzp/server.zig");
+const Handler = @import("adapter/handler.zig");
 const config = @import("config");
 
 pub fn main() !void {
