@@ -37,10 +37,11 @@ pub fn initialize(
         },
         .capabilities = .{
             .positionEncoding = .@"utf-8",
-            .hoverProvider = .{ .bool = true },
+
             .definitionProvider = .{ .bool = true },
-            .referenceProvider = .{ .bool = true },
-            // TODO, other caps
+            .hoverProvider = .{ .bool = true },
+            .implementationProvider = .{ .bool = true },
+            .referencesProvider = .{ .bool = true },
         },
     };
 }
@@ -219,6 +220,59 @@ pub fn @"textDocument/references" (self: *Handler, _: std.mem.Allocator, params:
     }
 
     return try locs.toOwnedSlice(self.alloc);
-    // const _locs = try locs.toOwnedSlice(self.alloc);
-    // return @constCast(_locs);
+}
+
+pub fn @"textDocument/implementation" (self: *Handler, _: std.mem.Allocator, params: lsp.types.ImplementationParams) !lsp.ResultType("textDocument/implementation") {
+    const doc, const locator = try self.getDocAndLocator(params.textDocument.uri);
+
+    const item = locator.getItemAt(params.position.character, params.position.line);
+    if (item == null) {
+        std.debug.print("nothing found in locator\n", .{}); // TODO
+        return null;
+    }
+
+    const itemName = utils.nameOf(item.?);
+
+    const matches = utils.matcher{
+        .n = itemName,
+    };
+
+    var locs = std.ArrayList(lsp.types.Location){};
+
+    switch (item.?) {
+        .object, .interface => {
+            try locs.append(self.alloc, .{
+                .uri = params.textDocument.uri,
+                .range = utils.rangeOf(item.?),
+            });
+        },
+        else => {},
+    }
+
+    for (doc.objects) |obj| {
+        for (obj.implements) |impl| {
+            if (matches.str(impl.name)) {
+                try locs.append(self.alloc, .{
+                    .uri = params.textDocument.uri,
+                    .range = utils.rangeOf(.{ .object = obj }),
+                });
+            }
+        }
+    }
+    for (doc.interfaces) |ifce| {
+        for (ifce.implements) |impl| {
+            if (matches.str(impl.name)) {
+                try locs.append(self.alloc, .{
+                    .uri = params.textDocument.uri,
+                    .range = utils.rangeOf(.{ .interface = ifce }),
+                });
+            }
+        }
+    }
+
+    return .{
+        .Definition = .{
+            .array_of_Location = try locs.toOwnedSlice(self.alloc),
+        },
+    };
 }
