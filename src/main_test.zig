@@ -8,8 +8,10 @@ const parser = @import("graphql/parser.zig");
 const gftftr = @import("adapter/locator.zig").getNamedTypeFromTypeRef;
 
 fn testmain() !void {
-    var dba: std.heap.DebugAllocator(.{}) = .init;
-    const alloc = dba.allocator();
+    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(alloc);
+    defer arena.deinit();
+    const aa = arena.allocator();
 
     const dir = try fs.cwd().openDir("test", .{
         .iterate = true,
@@ -24,9 +26,9 @@ fn testmain() !void {
 
         std.debug.print("=== {s} ===\n", .{fname[0..len]});
 
-        const lexResult = try lexer.tokenize(alloc, fname[0..len]);
+        const lexResult = try lexer.tokenize(aa, fname[0..len]);
 
-        var _parser = parser.Parser.create(alloc, lexResult.tokens);
+        var _parser = parser.Parser.create(aa, lexResult.tokens);
         const doc = try _parser.parse();
 
         for (doc.objects) |ty| {

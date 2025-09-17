@@ -64,6 +64,7 @@ interface OtherFace implements Face @gooberRepeatable @gooberRepeatable {
 
 type FooFace implements Face & OtherFace {
     zar: Zaz
+    foo: Foo
 }
 
 enum Choices {
