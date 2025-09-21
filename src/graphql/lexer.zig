@@ -271,7 +271,8 @@ const Tokenizer = struct {
         } else if (memeql(u8, next3, "\"\"\"")) {
             return self.readBlock();
         } else if (memeql(u8, next3[0..2], "\"\"")) {
-            return try self.nextNBytesAs(.string, 2);
+            self.discardNChars(2);
+            return try self.nextNBytesAs(.string, 0);
         } else if (memeql(u8, next3[0..1], "\"")) {
             return try self.readString();
         } else {
