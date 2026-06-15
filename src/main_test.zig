@@ -1,6 +1,4 @@
 const std = @import("std");
-const fs = std.fs;
-const path = fs.path;
 
 const lexer = @import("graphql/lexer.zig");
 const parser = @import("graphql/parser.zig");
@@ -8,17 +6,18 @@ const parser = @import("graphql/parser.zig");
 const gftftr = @import("adapter/locator.zig").getNamedTypeFromTypeRef;
 
 fn testmain() !void {
+    const io = std.testing.io;
     const alloc = std.testing.allocator;
     var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
     const aa = arena.allocator();
 
-    const dir = try fs.cwd().openDir("test", .{
+    const dir = try std.Io.Dir.cwd().openDir(io, "test", .{
         .iterate = true,
     });
     var iter = dir.iterate();
 
-    while (try iter.next()) |next| {
+    while (try iter.next(io)) |next| {
         var fname: [4096]u8 = undefined;
         const len = next.name.len + 5;
         @memcpy(fname[0..5], "test/");
@@ -26,7 +25,7 @@ fn testmain() !void {
 
         std.debug.print("=== {s} ===\n", .{fname[0..len]});
 
-        const lexResult = try lexer.tokenize(aa, fname[0..len]);
+        const lexResult = try lexer.tokenize(io, aa, fname[0..len]);
 
         var _parser = parser.Parser.create(aa, lexResult.tokens);
         const doc = try _parser.parse();
