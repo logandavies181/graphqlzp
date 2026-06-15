@@ -73,6 +73,11 @@ enum Choices {
     UGLY
 }
 
+enum EnumWithDirective @goober {
+    BE
+    NOT_TO_BE
+}
+
 # Directive definitions and unions need to keep reading until the next definition
 # or string because there isn't a right bracket telling it to stop.
 
@@ -85,6 +90,7 @@ union SumTypes @goober =
 "description after a union"
 directive @goober on FIELD_DEFINITION
   | OBJECT
+  | ENUM
   | ENUM_VALUE
   | INTERFACE
   | UNION

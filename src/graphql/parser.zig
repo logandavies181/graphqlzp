@@ -331,6 +331,7 @@ pub const Parser = struct {
         switch (peeked.?.kind) {
             .at => {
                 directives = try self.parseDirectives();
+                _ = try self.iter.requireNextMeaningful(&.{.lbrack});
             },
             .lbrack => {
                 _ = try self.iter.requireNextMeaningful(&.{.lbrack});
