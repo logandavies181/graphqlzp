@@ -337,7 +337,7 @@ pub const Locator = struct {
     alloc: std.mem.Allocator,
 
     pub fn init(doc: ast.Document, alloc: std.mem.Allocator) !Locator {
-        var locations = std.ArrayList(location){};
+        var locations = std.ArrayList(location).empty;
         var lb = locatorBuilder.init(alloc, &locations);
 
         try lb.addSchema(doc.schema);

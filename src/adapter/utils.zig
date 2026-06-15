@@ -78,7 +78,7 @@ pub fn formatArgDefs(alloc: std.mem.Allocator, args: []ast.ArgumentDefinition) !
         return "";
     }
 
-    var content = std.ArrayList(u8){};
+    var content = std.ArrayList(u8).empty;
     try content.append(alloc, '(');
 
     for (args, 0..args.len) |arg, i| {

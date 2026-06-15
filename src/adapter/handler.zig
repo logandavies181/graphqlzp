@@ -14,16 +14,17 @@ const utils = @import("utils.zig");
 
 const Handler = @This();
 
+io: std.Io,
 alloc: std.mem.Allocator,
 
-pub fn init(alloc: std.mem.Allocator) Handler {
+pub fn init(io: std.Io, alloc: std.mem.Allocator) Handler {
     return .{
+        .io = io,
         .alloc = alloc,
     };
 }
 
-pub fn deinit(_: *Handler) void {
-}
+pub fn deinit(_: *Handler) void {}
 
 pub fn initialize(
     _: *Handler,
@@ -75,10 +76,9 @@ pub fn onResponse(
     _: *Handler,
     _: std.mem.Allocator,
     _: lsp.JsonRPCMessage.Response,
-) void {
-}
+) void {}
 
-pub fn getDocAndLocator(alloc: std.mem.Allocator, furi: []const u8) !struct { ast.Document, Locator.Locator } {
+pub fn getDocAndLocator(io: std.Io, alloc: std.mem.Allocator, furi: []const u8) !struct { ast.Document, Locator.Locator } {
     // trim file:// if present
     const fname =
         if (std.mem.eql(u8, furi[0..7], "file://"))
@@ -86,7 +86,7 @@ pub fn getDocAndLocator(alloc: std.mem.Allocator, furi: []const u8) !struct { as
         else
             furi;
 
-    const lexResult = try lexer.tokenize(alloc, fname);
+    const lexResult = try lexer.tokenize(io, alloc, fname);
 
     var _parser = parser.Parser.create(alloc, lexResult.tokens);
     const doc = try _parser.parse();
@@ -96,8 +96,8 @@ pub fn getDocAndLocator(alloc: std.mem.Allocator, furi: []const u8) !struct { as
     return .{ doc, locator };
 }
 
-pub fn @"textDocument/hover" (_: *Handler, arena: std.mem.Allocator, params: lsp.types.HoverParams) !?lsp.types.Hover {
-    _, const locator = try getDocAndLocator(arena, params.textDocument.uri);
+pub fn @"textDocument/hover"(self: *Handler, arena: std.mem.Allocator, params: lsp.types.Hover.Params) !?lsp.types.Hover {
+    _, const locator = try getDocAndLocator(self.io, arena, params.textDocument.uri);
 
     const item = locator.getItemAt(params.position.character, params.position.line);
     if (item == null) {
@@ -109,7 +109,7 @@ pub fn @"textDocument/hover" (_: *Handler, arena: std.mem.Allocator, params: lsp
         return null;
     };
 
-    var content = std.ArrayList(u8){};
+    var content = std.ArrayList(u8).empty;
     const allocprint = std.fmt.allocPrint;
 
     const description = utils.descriptionOf(def);
@@ -148,13 +148,13 @@ pub fn @"textDocument/hover" (_: *Handler, arena: std.mem.Allocator, params: lsp
 
     return .{
         .contents = .{
-            .MarkupContent = .{ .kind = .markdown, .value = try content.toOwnedSlice(arena) },
+            .markup_content = .{ .kind = .markdown, .value = try content.toOwnedSlice(arena) },
         },
     };
 }
 
-pub fn @"textDocument/definition" (_: *Handler, arena: std.mem.Allocator, params: lsp.types.DefinitionParams) !lsp.ResultType("textDocument/definition") {
-    _, const locator = try getDocAndLocator(arena, params.textDocument.uri);
+pub fn @"textDocument/definition"(self: *Handler, arena: std.mem.Allocator, params: lsp.types.Definition.Params) !lsp.ResultType("textDocument/definition") {
+    _, const locator = try getDocAndLocator(self.io, arena, params.textDocument.uri);
 
     const item = locator.getItemAt(params.position.character, params.position.line);
     if (item == null) {
@@ -171,8 +171,8 @@ pub fn @"textDocument/definition" (_: *Handler, arena: std.mem.Allocator, params
     const len, const pos = Locator.getItemLenAndPos(def.?);
 
     return .{
-        .Definition = .{
-            .Location = .{
+        .definition = .{
+            .location = .{
                 .uri = params.textDocument.uri,
                 .range = .{
                     .start = pos,
@@ -186,8 +186,8 @@ pub fn @"textDocument/definition" (_: *Handler, arena: std.mem.Allocator, params
     };
 }
 
-pub fn @"textDocument/references" (_: *Handler, arena: std.mem.Allocator, params: lsp.types.ReferenceParams) !lsp.ResultType("textDocument/references") {
-    _, const locator = try getDocAndLocator(arena, params.textDocument.uri);
+pub fn @"textDocument/references"(self: *Handler, arena: std.mem.Allocator, params: lsp.types.reference.Params) !lsp.ResultType("textDocument/references") {
+    _, const locator = try getDocAndLocator(self.io, arena, params.textDocument.uri);
 
     const item = locator.getItemAt(params.position.character, params.position.line);
     if (item == null) {
@@ -201,7 +201,7 @@ pub fn @"textDocument/references" (_: *Handler, arena: std.mem.Allocator, params
         .n = itemName,
     };
 
-    var locs = std.ArrayList(lsp.types.Location){};
+    var locs = std.ArrayList(lsp.types.Location).empty;
     for (locator.locations) |loc| {
         switch (loc.item) {
             .object, .input, .interface, .namedType => {
@@ -219,8 +219,8 @@ pub fn @"textDocument/references" (_: *Handler, arena: std.mem.Allocator, params
     return try locs.toOwnedSlice(arena);
 }
 
-pub fn @"textDocument/implementation" (_: *Handler, arena: std.mem.Allocator, params: lsp.types.ImplementationParams) !lsp.ResultType("textDocument/implementation") {
-    const doc, const locator = try getDocAndLocator(arena, params.textDocument.uri);
+pub fn @"textDocument/implementation"(self: *Handler, arena: std.mem.Allocator, params: lsp.types.implementation.Params) !lsp.ResultType("textDocument/implementation") {
+    const doc, const locator = try getDocAndLocator(self.io, arena, params.textDocument.uri);
 
     const item = locator.getItemAt(params.position.character, params.position.line);
     if (item == null) {
@@ -234,7 +234,7 @@ pub fn @"textDocument/implementation" (_: *Handler, arena: std.mem.Allocator, pa
         .n = itemName,
     };
 
-    var locs = std.ArrayList(lsp.types.Location){};
+    var locs = std.ArrayList(lsp.types.Location).empty;
 
     switch (item.?) {
         .object, .interface => {
@@ -268,8 +268,8 @@ pub fn @"textDocument/implementation" (_: *Handler, arena: std.mem.Allocator, pa
     }
 
     return .{
-        .Definition = .{
-            .array_of_Location = try locs.toOwnedSlice(arena),
+        .definition = .{
+            .locations = try locs.toOwnedSlice(arena),
         },
     };
 }

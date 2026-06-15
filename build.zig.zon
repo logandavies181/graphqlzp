@@ -2,11 +2,11 @@
     .name = .graphqlzp,
     .version = "0.1.0",
     .fingerprint = 0xa8440dcf08082255, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .lsp_kit = .{
-            .url = "git+https://github.com/zigtools/lsp-kit.git#576e9405b1ab22c17c0f9318feed3278aa66b0ea",
-            .hash = "lsp_kit-0.1.0-bi_PL04yCgAxLsF0hH2a5sZKT84MGQaKXouw2jvCE8Nl",
+            .url = "https://github.com/zigtools/lsp-kit/archive/refs/heads/0.16.x.tar.gz",
+            .hash = "lsp_kit-0.1.0-bi_PL8cxDAAxREwBYHZFTGG2xVuzAjgnZPMmwiajkFu0",
         },
     },
     .paths = .{

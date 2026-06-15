@@ -46,9 +46,9 @@ pub const LexResult = struct {
     _data: []const u8,
 };
 
-pub fn tokenize(alloc: std.mem.Allocator, path: []const u8) !LexResult {
-    var tokenizer = try Tokenizer.create(alloc, path);
-    const tokens = try tokenizer.tokenize(alloc);
+pub fn tokenize(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !LexResult {
+    var tokenizer = try Tokenizer.create(io, alloc, path);
+    const tokens = try tokenizer.tokenize(alloc); // TODO: why does this need an alloc if there's on in a field.
     return .{
         .tokens = tokens,
         ._data = tokenizer.buf,
@@ -65,10 +65,8 @@ const Tokenizer = struct {
 
     alloc: std.mem.Allocator,
 
-    fn create(alloc: std.mem.Allocator, path: []const u8) !Tokenizer {
-        const file = try std.fs.cwd().openFile(path, .{});
-
-        const buf = try file.readToEndAlloc(alloc, comptime 2 << 22); // 4MiB
+    fn create(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !Tokenizer {
+        const buf = try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
 
         var view = try unicode.Utf8View.init(buf);
         const iter = view.iterator();
@@ -81,7 +79,7 @@ const Tokenizer = struct {
     }
 
     fn tokenize(self: *Tokenizer, alloc: std.mem.Allocator) ![]Token {
-        var tokens = std.ArrayList(Token){};
+        var tokens = std.ArrayList(Token).empty;
 
         // TODO move BOM check to standard lexing. Spec says we can just ignore it in the middle of files.
         const first = self.iter.peek(1);
@@ -321,7 +319,7 @@ const Tokenizer = struct {
 
         self.discardNChars(3);
 
-        var lines = std.ArrayList([]u8){};
+        var lines = std.ArrayList([]u8).empty;
         var indent: ?u64 = null;
         var currIndent: u64 = 0;
         var firstNonWhitespace = false;
@@ -379,7 +377,7 @@ const Tokenizer = struct {
             }
         }
 
-        var output = std.ArrayList(u8){};
+        var output = std.ArrayList(u8).empty;
         for (lines.items, 0..lines.items.len) |line, i| {
             if (i == 0) {
                 if (removeFirstLine) {

@@ -75,14 +75,14 @@ pub const Parser = struct {
     }
 
     fn tryParse(self: *Parser) !Document {
-        var directiveDefs = std.ArrayList(DirectiveDef){};
-        var enums = std.ArrayList(Enum){};
-        var inputs = std.ArrayList(Input){};
-        var interfaces = std.ArrayList(Interface){};
-        var objects = std.ArrayList(Object){};
-        var scalars = std.ArrayList(Scalar){};
+        var directiveDefs = std.ArrayList(DirectiveDef).empty;
+        var enums = std.ArrayList(Enum).empty;
+        var inputs = std.ArrayList(Input).empty;
+        var interfaces = std.ArrayList(Interface).empty;
+        var objects = std.ArrayList(Object).empty;
+        var scalars = std.ArrayList(Scalar).empty;
         var schema: ?Schema = null;
-        var unions = std.ArrayList(Union){};
+        var unions = std.ArrayList(Union).empty;
 
         var desc: ?[]const u8 = null;
         while (true) {
@@ -339,7 +339,7 @@ pub const Parser = struct {
         }
 
         var description: ?[]const u8 = null;
-        var members = std.ArrayList(EnumValue){};
+        var members = std.ArrayList(EnumValue).empty;
         while (true) {
             const next = try self.iter.requireNextMeaningful(&.{ .rbrack, .identifier, .string });
             switch (next.kind) {
@@ -392,7 +392,7 @@ pub const Parser = struct {
     fn parse_struct(self: *Parser, ty: type) !ty {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        var implements = std.ArrayList(NamedType){};
+        var implements = std.ArrayList(NamedType).empty;
         blk: {
             // TODO break out parsing implements section.
 
@@ -456,7 +456,7 @@ pub const Parser = struct {
 
         _ = try self.iter.requireNextMeaningful(&.{.lbrack});
 
-        var fields = std.ArrayList(Field){};
+        var fields = std.ArrayList(Field).empty;
 
         var desc: ?[]const u8 = null;
         while (true) {
@@ -514,7 +514,7 @@ pub const Parser = struct {
             },
         }
 
-        var fields = std.ArrayList(InputField){};
+        var fields = std.ArrayList(InputField).empty;
         var desc: ?[]const u8 = null;
         while (true) {
             const _next = try self.iter.requireNextMeaningful(&.{ .identifier, .rbrack, .string });
@@ -685,7 +685,7 @@ pub const Parser = struct {
         _ = try self.iter.requireNextMeaningful(&.{.equals});
 
         peeked = self.iter.peekNextMeaningful();
-        var members = std.ArrayList(NamedType){};
+        var members = std.ArrayList(NamedType).empty;
         if (peeked != null) {
             // This is intentionally backwards, so we don't error upon actually reading
             // the first one.
@@ -812,7 +812,7 @@ pub const Parser = struct {
     }
 
     fn parseArguments(self: *Parser) ![]Argument {
-        var args = std.ArrayList(Argument){};
+        var args = std.ArrayList(Argument).empty;
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
             if (peeked == null) {
@@ -868,7 +868,7 @@ pub const Parser = struct {
                 .Float = try std.fmt.parseFloat(f64, next.value),
             },
             .lsqbrack => blk: {
-                var listItems = std.ArrayList(Value){};
+                var listItems = std.ArrayList(Value).empty;
                 while (true) {
                     const _next = try self.parseValue();
                     if (_next == null) {
@@ -885,7 +885,7 @@ pub const Parser = struct {
     }
 
     fn parseArgumentDefinitions(self: *Parser) ![]ArgumentDefinition {
-        var args = std.ArrayList(ArgumentDefinition){};
+        var args = std.ArrayList(ArgumentDefinition).empty;
         var description: ?[]const u8 = null;
         while (true) {
             const peeked = self.iter.peekNextMeaningful();
@@ -953,7 +953,7 @@ pub const Parser = struct {
 
     /// Assumes the caller has peeked for @ before calling.
     fn parseDirectives(self: *Parser) ![]Directive {
-        var directives = std.ArrayList(Directive){};
+        var directives = std.ArrayList(Directive).empty;
 
         while (true) {
             const next = self.iter.peekNextMeaningful();
@@ -1032,7 +1032,7 @@ pub const Parser = struct {
             else => return Error.badParse,
         }
 
-        var locations = std.ArrayList(DirectiveLocation){};
+        var locations = std.ArrayList(DirectiveLocation).empty;
         var lastWasBar = true;
         while (true) {
             const _next = self.iter.nextMeaningful() catch |e| {
