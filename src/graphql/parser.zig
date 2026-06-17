@@ -495,21 +495,19 @@ pub const Parser = struct {
     fn parseInput(self: *Parser) !Input {
         const name = try self.iter.requireNextMeaningful(&.{.identifier});
 
-        const next = try self.iter.nextMeaningful();
+        const peeked = self.iter.peekNextMeaningful();
+        if (peeked == null) {
+            return Error.noneNext;
+        }
         var directives: []Directive = &.{};
-        switch (next.kind) {
+        switch (peeked.?.kind) {
             .at => {
                 directives = try self.parseDirectives();
+                _ = try self.iter.requireNextMeaningful(&.{.lbrack});
             },
-            .identifier => {
-                return .{
-                    .name = name.value,
-
-                    .offset = name.offset,
-                    .lineNum = name.lineNum,
-                };
+            .lbrack => {
+                _ = try self.iter.requireNextMeaningful(&.{.lbrack});
             },
-            .lbrack => {}, // continue
             else => {
                 return Error.badParse;
             },

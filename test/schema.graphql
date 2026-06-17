@@ -52,6 +52,10 @@ input InBar {
     defaulted: String = "this is a default value"
 }
 
+input InputWithDirective @goober {
+    zar: Zaz
+}
+
 scalar Zaz @specifiedBy(url: "https://example.com/foo")
 
 interface Face {
@@ -88,17 +92,23 @@ union SumTypes @goober =
   | Duck
 
 "description after a union"
-directive @goober on FIELD_DEFINITION
-  | OBJECT
+directive @goober on
+  | ARGUMENT_DEFINITION
   | ENUM
   | ENUM_VALUE
+  | FIELD_DEFINITION
+  | INPUT_OBJECT
   | INTERFACE
+  | OBJECT
   | UNION
-  | ARGUMENT_DEFINITION
 
-directive @gooberRepeatable repeatable on OBJECT
+directive @gooberRepeatable repeatable on
+  | INTERFACE
+  | OBJECT
 
-directive @gooberWithArgs(arg: String, listArg: [String], nonNullArg: String!) on SCALAR
+directive @gooberWithArgs(arg: String, listArg: [String], nonNullArg: String!) on
+  | FIELD_DEFINITION
+  | SCALAR
 
 "description after a directive"
 type Duck {
